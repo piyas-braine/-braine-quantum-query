@@ -38,7 +38,7 @@ The `defineModel` API is the library's standout feature.
 | **Boilerplate** | 🟢 **Very Low** | 🟡 Low (for queries) | 🔴 High (Slices, Store setup) |
 | **Reactivity** | 🟢 **Fine-grained (O(1))** | 🟡 Component-level | 🟡 Selector-based |
 | **Caching** | 🟢 **Automatic** | 🟢 Automatic | 🟢 Automatic |
-| **Bundle Size** | 🟢 **Tiny (<5kb)** | 🟡 Moderate (~13kb) | 🔴 Heavy |
+| **Bundle Size** | 🟢 **Tiny (&lt;5kb)** | 🟡 Moderate (~13kb) | 🔴 Heavy |
 | **Type Safety** | 🟢 **Excellent (Zod)** | 🟢 Good | 🟢 Good |
 | **Learning Curve** | 🟢 **Easy** | 🟡 Moderate | 🔴 Steep |
 
