@@ -126,6 +126,60 @@ export class QueryCache {
         } else {
             this.signals.set(key, createSignal<CacheEntry<T> | undefined>(entry));
         }
+
+        // Trigger onQueryUpdated hooks
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+        this.plugins.forEach(p => p.onQueryUpdated?.(normalizedKey, data));
+    }
+
+    // --- DEDUPLICATION ---
+    private deduplicationCache = new Map<string, Promise<any>>();
+
+    // --- MIDDLEWARE / PLUGINS ---
+    private plugins: import('./types').QueryPlugin[] = [];
+
+    /**
+     * Register a middleware plugin
+     */
+    use(plugin: import('./types').QueryPlugin): this {
+        this.plugins.push(plugin);
+        return this;
+    }
+
+    /**
+     * Fetch data with deduplication.
+     * If a request for the same key is already in flight, returns the existing promise.
+     */
+    async fetch<T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> {
+        const key = this.generateKey(queryKey);
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+
+        // Return existing promise if in flight
+        if (this.deduplicationCache.has(key)) {
+            return this.deduplicationCache.get(key) as Promise<T>;
+        }
+
+        // Trigger onFetchStart hooks
+        this.plugins.forEach(p => p.onFetchStart?.(normalizedKey));
+
+        // Create new promise
+        const promise = fn().then(
+            (data) => {
+                this.deduplicationCache.delete(key);
+                // Trigger onFetchSuccess hooks
+                this.plugins.forEach(p => p.onFetchSuccess?.(normalizedKey, data));
+                return data;
+            },
+            (error) => {
+                this.deduplicationCache.delete(key);
+                // Trigger onFetchError hooks
+                this.plugins.forEach(p => p.onFetchError?.(normalizedKey, error));
+                throw error;
+            }
+        );
+
+        this.deduplicationCache.set(key, promise);
+        return promise;
     }
 
     /**
@@ -134,6 +188,10 @@ export class QueryCache {
      */
     invalidate(queryKey: QueryKeyInput): void {
         const prefix = this.generateKey(queryKey);
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+
+        // Trigger onInvalidate hooks
+        this.plugins.forEach(p => p.onInvalidate?.(normalizedKey));
 
         const invalidateKey = (key: string) => {
             const signal = this.signals.get(key);
@@ -153,6 +211,7 @@ export class QueryCache {
             }
         }
     }
+
 
     /**
      * Remove all cache entries
@@ -222,37 +281,6 @@ export class QueryCache {
             if (val) map.set(key, val);
         }
         return map;
-    }
-
-    // --- DEDUPLICATION ---
-    private deduplicationCache = new Map<string, Promise<any>>();
-
-    /**
-     * Fetch data with deduplication.
-     * If a request for the same key is already in flight, returns the existing promise.
-     */
-    async fetch<T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> {
-        const key = this.generateKey(queryKey);
-
-        // Return existing promise if in flight
-        if (this.deduplicationCache.has(key)) {
-            return this.deduplicationCache.get(key) as Promise<T>;
-        }
-
-        // Create new promise
-        const promise = fn().then(
-            (data) => {
-                this.deduplicationCache.delete(key);
-                return data;
-            },
-            (error) => {
-                this.deduplicationCache.delete(key);
-                throw error;
-            }
-        );
-
-        this.deduplicationCache.set(key, promise);
-        return promise;
     }
 }
 

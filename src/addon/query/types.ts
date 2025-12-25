@@ -10,3 +10,15 @@ export interface QueryClientConfig {
     defaultStaleTime?: number;
     defaultCacheTime?: number;
 }
+
+/**
+ * Middleware Plugin Interface
+ */
+export interface QueryPlugin {
+    name: string;
+    onFetchStart?: (queryKey: any[]) => void;
+    onFetchSuccess?: (queryKey: any[], data: any) => void;
+    onFetchError?: (queryKey: any[], error: Error) => void;
+    onInvalidate?: (queryKey: any[]) => void;
+    onQueryUpdated?: (queryKey: any[], data: any) => void;
+}
