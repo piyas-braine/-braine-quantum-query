@@ -8,11 +8,11 @@ export type { CacheEntry, QueryKey, QueryKeyInput } from './queryCache';
 export { usePaginatedQuery } from './pagination';
 export type { UsePaginatedQueryOptions, PaginatedQueryResult } from './pagination';
 
-export { useInfiniteQuery } from './infiniteQuery';
-export type { UseInfiniteQueryOptions, InfiniteQueryResult } from './infiniteQuery';
-
-export { useQuery } from './useQuery';
-export type { UseQueryOptions, QueryResult } from './useQuery';
-
-export { useMutation, optimisticHelpers } from './useMutation';
-export type { UseMutationOptions, MutationResult } from './useMutation';
+export * from './useQuery';
+export * from './useMutation';
+export * from './queryCache';
+export * from './context';
+export * from './infiniteQuery';
+export * from './devtools';
+export * from './useQueryCache';
+export type { QueryClientConfig, Schema } from './types';

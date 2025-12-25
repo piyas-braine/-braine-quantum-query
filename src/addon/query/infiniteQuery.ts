@@ -145,7 +145,6 @@ export function useInfiniteQuery<T, TPageParam = any>({
 
         const nextPageParam = getNextPageParamRef.current(lastPage, state.data.pages);
         if (nextPageParam === undefined) {
-            // Should have been caught by hasNextPage, but safe guard
             return;
         }
 
@@ -167,7 +166,7 @@ export function useInfiniteQuery<T, TPageParam = any>({
         } else {
             dispatch({ type: 'FETCH_STOP' });
         }
-    }, [state.hasNextPage, state.isFetchingNextPage, state.data?.pages, fetchPage]);
+    }, [state, fetchPage]);
 
     const fetchPreviousPage = useCallback(async () => {
         if (!state.hasPreviousPage || state.isFetchingPreviousPage || !getPreviousPageParamRef.current) return;
@@ -196,7 +195,7 @@ export function useInfiniteQuery<T, TPageParam = any>({
         } else {
             dispatch({ type: 'FETCH_STOP' });
         }
-    }, [state.hasPreviousPage, state.isFetchingPreviousPage, state.data?.pages, fetchPage]);
+    }, [state, fetchPage]);
 
     const refetch = useCallback(async () => {
         dispatch({ type: 'RESET' });

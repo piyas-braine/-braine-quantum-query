@@ -6,10 +6,12 @@
 import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
+import { Schema } from './types';
 
 export interface UseQueryOptions<T> {
     queryKey: any[];
-    queryFn: () => Promise<T>;
+    queryFn: () => Promise<unknown>;
+    schema?: Schema<T>;
     staleTime?: number;
     cacheTime?: number;
     enabled?: boolean;
@@ -31,6 +33,7 @@ export interface QueryResult<T> {
 export function useQuery<T>({
     queryKey,
     queryFn,
+    schema,
     staleTime = 0,
     cacheTime = 5 * 60 * 1000,
     enabled = true,
@@ -59,6 +62,9 @@ export function useQuery<T>({
 
         // Check cache first
         const cached = client.get<T>(queryKey);
+        // Note: We trust the cache if it exists, assuming it passed validation on entry?
+        // OR should we re-validate cached data? For perf, we usually trust cache.
+        // Let's trust cache for now.
         if (cached) {
             const stale = client.isStale(queryKey);
 
@@ -81,19 +87,29 @@ export function useQuery<T>({
         try {
             dispatch({ type: 'FETCH_START', background });
 
-            const result = await queryFn();
+            let result = await queryFn();
 
-            // Cache the result
-            client.set(queryKey, result, { staleTime, cacheTime });
+            // Validate if schema is provided
+            if (schema) {
+                try {
+                    result = schema.parse(result);
+                } catch (validationError) {
+                    // Re-throw to be caught by outer catch
+                    throw validationError;
+                }
+            }
 
-            dispatch({ type: 'FETCH_SUCCESS', data: result });
+            // Cache the result (now validated)
+            client.set(queryKey, result as T, { staleTime, cacheTime });
+
+            dispatch({ type: 'FETCH_SUCCESS', data: result as T });
         } catch (err: any) {
             // Ignore abort errors
             if (err.name === 'AbortError') return;
 
             dispatch({ type: 'FETCH_ERROR', error: err });
         }
-    }, [queryKeyHash, queryFn, enabled, staleTime, cacheTime, client]);
+    }, [queryKeyHash, queryFn, enabled, staleTime, cacheTime, client, schema]);
 
     // Initial fetch
     useEffect(() => {

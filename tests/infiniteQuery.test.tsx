@@ -188,7 +188,10 @@ describe('useInfiniteQuery', () => {
             })
         );
 
-        await waitFor(() => expect(result.current.data?.pageParams).toEqual(['p1']));
+        await waitFor(() => {
+            expect(result.current.data?.pages).toHaveLength(1);
+            expect(result.current.data?.pageParams).toEqual(['p1']);
+        });
 
         await act(async () => {
             await result.current.fetchNextPage();
