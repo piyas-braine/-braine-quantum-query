@@ -132,6 +132,32 @@ const user = await api.get<User>('/me');
 
 ---
 
+## 🔐 Authentication (Built-in)
+
+No more interceptors. We handle token injection and **automatic refresh on 401** errors out of the box.
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.myapp.com',
+  auth: {
+    // 1. Inject Token
+    getToken: () => localStorage.getItem('token'),
+    
+    // 2. Refresh & Retry (Auto-called on 401)
+    onTokenExpired: async (client) => {
+        const newToken = await refreshToken(); 
+        localStorage.setItem('token', newToken);
+        return newToken; // Original request is automatically retried
+    },
+    
+    // 3. Redirect on Fail
+    onAuthFailed: () => window.location.href = '/login'
+  }
+});
+```
+
+---
+
 ## 🛡️ Data Integrity (Runtime Safety)
 
 Don't trust the backend. Validate it. We support **Zod**, **Valibot**, or **Yup** schemas directly in the hook.
