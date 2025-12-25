@@ -194,9 +194,10 @@ persistQueryClient({
 
 ## 📚 Documentation
 
-*   **[API Reference](/api)**: Full method signatures and options.
-*   **[Recipes](/recipes)**: Common patterns (Auth, Infinite Scroll, Optimistic UI).
-*   **[Migration Guide](/migration)**: Step-by-step guide from RTK Query / Redux.
+*   **[API Reference](/docs/api)**: Full method signatures and options.
+*   **[Recipes](/docs/recipes)**: Common patterns (Auth, Infinite Scroll, Optimistic UI).
+*   **[Migration Guide](/docs/migration)**: Step-by-step guide from RTK Query / Redux.
+*   **[Why Quantum Query?](/docs/comparison)**: Detailed comparison and feature analysis.
 
 ---
 
