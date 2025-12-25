@@ -114,6 +114,27 @@ const users = await api.get('/users');
 
 ---
 
+## Data Integrity (Runtime Safety)
+
+Don't trust the backend. Validate it. We support **Zod**, **Valibot**, or **Yup** directly.
+
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string()
+});
+
+// 1. Runtime Validation: Throws error if API returns garbage
+// 2. Auto-Typing: 'user' is inferred as { id: string, name: string }
+const user = await api.get('/me', { 
+  schema: UserSchema 
+});
+```
+
+---
+
 ## Comparison
 
 | Feature | Redux Toolkit | TanStack Query | **Quantum-Query** |
