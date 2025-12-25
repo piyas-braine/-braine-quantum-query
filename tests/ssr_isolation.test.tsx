@@ -8,8 +8,9 @@ import React from 'react';
 describe('QueryClientProvider Isolation', () => {
     it('should isolate cache between providers', async () => {
         // Create two separate clients
-        const clientA = new QueryCache();
-        const clientB = new QueryCache();
+        // Create two separate clients with GC disabled (prevents open handles)
+        const clientA = new QueryCache({ enableGC: false });
+        const clientB = new QueryCache({ enableGC: false });
 
         // Wrapper for Client A
         const wrapperA = ({ children }: { children: React.ReactNode }) => (
@@ -51,5 +52,9 @@ describe('QueryClientProvider Isolation', () => {
 
         // Prove cache A does not have 'dataB'
         expect(clientA.get(['key'])).not.toBe('dataB');
+
+        // Cleanup to prevent open handles (intervals)
+        clientA.destroy();
+        clientB.destroy();
     });
 });

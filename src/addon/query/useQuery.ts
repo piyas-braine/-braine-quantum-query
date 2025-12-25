@@ -3,10 +3,10 @@
  * Base query hook with stale-while-revalidate and background refetching
  */
 
-import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore, useReducer } from 'react';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
-import { Schema } from './types';
+import { type Schema } from './types';
 
 export interface UseQueryOptions<T> {
     queryKey: any[];
@@ -42,134 +42,151 @@ export function useQuery<T>({
     refetchInterval
 }: UseQueryOptions<T>): QueryResult<T> {
     const client = useQueryClient();
-    const [state, dispatch] = useReducer(reducer, initialState);
+    const queryKeyHash = stableHash(queryKey);
+
+    // --- EXTERNAL STORE SUBSCRIPTION (Concurrency Safe) ---
+    const subscribe = useCallback((onStoreChange: () => void) => {
+        // console.error('DEBUG: subscribe called', queryKeyHash);
+        const signal = client.getSignal<T>(queryKey);
+        // Subscribe to signal updates
+        // Signal emits value, we adapt to void callback for React
+        return signal.subscribe(() => {
+            // console.error('DEBUG: signal updated', queryKeyHash);
+            onStoreChange();
+        });
+    }, [client, queryKeyHash]);
+
+    const getSnapshot = useCallback(() => {
+        // console.error('DEBUG: getSnapshot called', queryKeyHash);
+        const signal = client.getSignal<T>(queryKey);
+        return signal.get();
+    }, [client, queryKeyHash]);
+
+    // Read data safely from external store
+    const cacheEntry = useSyncExternalStore(subscribe, getSnapshot);
+    const data = cacheEntry?.data;
+    const dataTimestamp = cacheEntry?.timestamp;
+
+    // --- LOCAL STATUS STATE ---
+    // We only track fetching status and errors locally. Data is strictly from store.
+
+    // Initial State
+    const [statusState, dispatch] = useReducer(statusReducer, {
+        isFetching: false,
+        error: null,
+    });
 
     const abortControllerRef = useRef<AbortController | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Stable query key hash
-    const queryKeyHash = stableHash(queryKey);
+    // --- DERIVED STATE ---
+    const isStale = dataTimestamp ? (Date.now() - dataTimestamp) > staleTime : true;
+    const isLoading = data === undefined && statusState.isFetching;
+    // Note: isLoading usually means "no data and trying to get it". 
+    // If we have no data and NOT fetching (enabled=false), is it loading? UseQuery usually says yes if no data.
+    // Let's stick to: No Data = Loading (conceptually), but TanStack splits isLoading vs isPending.
+    // We'll define isLoading as: No Data in cache.
+    const derivedIsLoading = data === undefined;
 
+    // --- STABLE REFS ---
+    // Prevent infinite loops when queryFn is defined inline (new reference every render)
+    const queryFnRef = useRef(queryFn);
+    const schemaRef = useRef(schema);
+    const queryKeyRef = useRef(queryKey);
+
+    useEffect(() => {
+        queryFnRef.current = queryFn;
+        schemaRef.current = schema;
+        queryKeyRef.current = queryKey;
+    });
+
+    // --- FETCH LOGIC ---
     const fetchData = useCallback(async (background = false) => {
         if (!enabled) return;
 
-        // Cancel any ongoing request
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-
+        if (abortControllerRef.current) abortControllerRef.current.abort();
         abortControllerRef.current = new AbortController();
 
-        // Check cache first
-        const cached = client.get<T>(queryKey);
-        // Note: We trust the cache if it exists, assuming it passed validation on entry?
-        // OR should we re-validate cached data? For perf, we usually trust cache.
-        // Let's trust cache for now.
-        if (cached) {
-            const stale = client.isStale(queryKey);
-
-            // If we have cached data, update state immediately
-            // If it's stale, we'll continue to fetch
-            if (!background) {
-                dispatch({
-                    type: 'CACHE_HIT',
-                    data: cached,
-                    isStale: stale
-                });
-            }
-
-            // If valid and not background fetch, we are done
-            if (!stale && !background) {
+        // Check if we need to fetch (if not background)
+        if (!background) {
+            const currentEntry = getSnapshot(); // Use the getter we defined
+            if (currentEntry && (Date.now() - currentEntry.timestamp) <= staleTime) {
+                // Fresh enough, don't fetch
                 return;
             }
         }
 
         try {
+            // console.log('DEBUG: FETCH_START', queryKeyHash);
+            // Optimization: If already fetching (and not background which forces it?), 
+            // maybe we shouldn't dispatch? But client.fetch handles dedupe.
+            // Dispatching again causes re-render. 
+            // We should only dispatch if not already fetching? 
+            // But statusState is local.
             dispatch({ type: 'FETCH_START', background });
 
-            let result = await queryFn();
+            const fn = queryFnRef.current;
+            const sc = schemaRef.current;
+            const key = queryKeyRef.current;
 
-            // Validate if schema is provided
-            if (schema) {
-                try {
-                    result = schema.parse(result);
-                } catch (validationError) {
-                    // Re-throw to be caught by outer catch
-                    throw validationError;
+            let result = await client.fetch(key, async () => {
+                let res = await fn();
+                if (sc) {
+                    res = sc.parse(res);
                 }
-            }
+                return res;
+            });
 
-            // Cache the result (now validated)
-            client.set(queryKey, result as T, { staleTime, cacheTime });
+            // Update Cache (triggers useSyncExternalStore update)
+            // console.log('DEBUG: SETTING CACHE', queryKeyHash);
+            client.set(key, result as T, { staleTime, cacheTime });
 
-            dispatch({ type: 'FETCH_SUCCESS', data: result as T });
+            dispatch({ type: 'FETCH_SUCCESS' });
         } catch (err: any) {
-            // Ignore abort errors
             if (err.name === 'AbortError') return;
-
             dispatch({ type: 'FETCH_ERROR', error: err });
         }
-    }, [queryKeyHash, queryFn, enabled, staleTime, cacheTime, client, schema]);
+    }, [queryKeyHash, enabled, staleTime, cacheTime, client, getSnapshot]); // Removed queryKey (unstable), using ref
 
-    // Initial fetch
+    // Initial Fetch & Refetch on Invalidation
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        // If data becomes undefined (e.g. invalidated), we fetch again
+        if (data === undefined && !statusState.error) {
+            fetchData();
+        }
+    }, [fetchData, data, statusState.error]);
 
     // Refetch interval
     useEffect(() => {
         if (!enabled || !refetchInterval) return;
-
-        intervalRef.current = setInterval(() => {
-            fetchData(true);
-        }, refetchInterval);
-
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        };
+        intervalRef.current = setInterval(() => fetchData(true), refetchInterval);
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
     }, [enabled, refetchInterval, fetchData]);
 
-    // Window focus refetch
+    // Window focus
     useEffect(() => {
         if (!enabled || !refetchOnWindowFocus) return;
-
         const handleFocus = () => {
-            if (client.isStale(queryKey)) {
-                fetchData(true);
-            }
+            // Check staleness via snapshot
+            const entry = getSnapshot();
+            const isStaleNow = !entry || (Date.now() - entry.timestamp) > staleTime;
+            if (isStaleNow) fetchData(true);
         };
-
         window.addEventListener('focus', handleFocus);
         return () => window.removeEventListener('focus', handleFocus);
-    }, [enabled, refetchOnWindowFocus, queryKey, fetchData, client]);
+    }, [enabled, refetchOnWindowFocus, fetchData, getSnapshot, staleTime]);
 
-    // Network reconnect refetch
+    // Network reconnect
     useEffect(() => {
         if (!enabled || !refetchOnReconnect) return;
-
         const handleOnline = () => {
-            if (client.isStale(queryKey)) {
-                fetchData(true);
-            }
+            const entry = getSnapshot();
+            const isStaleNow = !entry || (Date.now() - entry.timestamp) > staleTime;
+            if (isStaleNow) fetchData(true);
         };
-
         window.addEventListener('online', handleOnline);
         return () => window.removeEventListener('online', handleOnline);
-    }, [enabled, refetchOnReconnect, queryKey, fetchData, client]);
-
-    // Cleanup
-    useEffect(() => {
-        return () => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        };
-    }, []);
+    }, [enabled, refetchOnReconnect, fetchData, getSnapshot, staleTime]);
 
     const refetch = useCallback(async () => {
         client.invalidate(queryKey);
@@ -177,77 +194,47 @@ export function useQuery<T>({
     }, [queryKeyHash, fetchData, client]);
 
     return {
-        data: state.data,
-        isLoading: state.isLoading,
-        isError: state.isError,
-        isFetching: state.isFetching,
-        isStale: state.isStale,
-        error: state.error,
+        data,
+        isLoading: derivedIsLoading,
+        isError: !!statusState.error,
+        isFetching: statusState.isFetching,
+        isStale,
+        error: statusState.error,
         refetch
     };
 }
 
-// --- Reducer ---
+// --- REDUCER (Status Only) ---
 
-interface State<T> {
-    data: T | undefined;
-    isLoading: boolean;
+interface StatusState {
     isFetching: boolean;
-    isError: boolean;
-    isStale: boolean;
     error: Error | null;
 }
 
-const initialState: State<any> = {
-    data: undefined,
-    isLoading: true,
-    isFetching: false,
-    isError: false,
-    isStale: false,
-    error: null,
-};
-
-type Action<T> =
+type StatusAction =
     | { type: 'FETCH_START'; background: boolean }
-    | { type: 'FETCH_SUCCESS'; data: T }
-    | { type: 'FETCH_ERROR'; error: Error }
-    | { type: 'CACHE_HIT'; data: T; isStale: boolean };
+    | { type: 'FETCH_SUCCESS' }
+    | { type: 'FETCH_ERROR'; error: Error };
 
-function reducer<T>(state: State<T>, action: Action<T>): State<T> {
+function statusReducer(state: StatusState, action: StatusAction): StatusState {
     switch (action.type) {
         case 'FETCH_START':
             return {
                 ...state,
-                isLoading: !action.background && !state.data, // Only loading if no data
                 isFetching: true,
-                isError: false,
                 error: null,
             };
         case 'FETCH_SUCCESS':
             return {
                 ...state,
-                isLoading: false,
                 isFetching: false,
-                isStale: false,
-                data: action.data,
-                isError: false,
                 error: null
             };
         case 'FETCH_ERROR':
             return {
                 ...state,
-                isLoading: false,
                 isFetching: false,
-                isError: true,
                 error: action.error,
-            };
-        case 'CACHE_HIT':
-            return {
-                ...state,
-                isLoading: false,
-                data: action.data,
-                isStale: action.isStale,
-                // Do not clear fetching here, as we might be continuing to fetch if stale
             };
         default:
             return state;

@@ -4,12 +4,14 @@
  */
 
 import { stableHash } from './utils';
+import { type Signal, createSignal } from '../signals';
 
 export interface CacheEntry<T = any> {
     data: T;
     timestamp: number;
     staleTime: number;
     cacheTime: number;
+    key: any[];
 }
 
 export interface QueryKey {
@@ -20,13 +22,16 @@ export interface QueryKey {
 export type QueryKeyInput = any[] | QueryKey;
 
 export class QueryCache {
-    private cache = new Map<string, CacheEntry>();
+    // Store signals instead of raw values
+    private signals = new Map<string, Signal<CacheEntry | undefined>>();
     private gcInterval: ReturnType<typeof setInterval> | null = null;
     private readonly defaultStaleTime = 0; // Immediately stale
     private readonly defaultCacheTime = 5 * 60 * 1000; // 5 minutes
 
-    constructor() {
-        this.startGarbageCollection();
+    constructor(config?: { enableGC?: boolean }) {
+        if (config?.enableGC !== false) {
+            this.startGarbageCollection();
+        }
     }
 
     /**
@@ -40,12 +45,15 @@ export class QueryCache {
     }
 
     /**
-     * Get cached data if not expired
+     * Get data (wrapper around signal.get)
      */
     get<T>(queryKey: QueryKeyInput): T | undefined {
         const key = this.generateKey(queryKey);
-        const entry = this.cache.get(key);
+        const signal = this.signals.get(key);
 
+        if (!signal) return undefined;
+
+        const entry = signal.get();
         if (!entry) return undefined;
 
         const now = Date.now();
@@ -53,7 +61,7 @@ export class QueryCache {
 
         // Remove if past cache time
         if (age > entry.cacheTime) {
-            this.cache.delete(key);
+            this.signals.delete(key);
             return undefined;
         }
 
@@ -61,12 +69,32 @@ export class QueryCache {
     }
 
     /**
+     * Get Signal for a key (Low level API for hooks)
+     * Automatically creates a signal if one doesn't exist
+     */
+    getSignal<T>(queryKey: QueryKeyInput): Signal<CacheEntry<T> | undefined> {
+        const key = this.generateKey(queryKey);
+        let signal = this.signals.get(key);
+
+        if (!signal) {
+            // Lazy creation of signal with undefined initial value
+            signal = createSignal<CacheEntry<T> | undefined>(undefined);
+            this.signals.set(key, signal);
+        }
+
+        return signal as Signal<CacheEntry<T> | undefined>;
+    }
+
+    /**
      * Check if data is stale
      */
     isStale(queryKey: QueryKeyInput): boolean {
         const key = this.generateKey(queryKey);
-        const entry = this.cache.get(key);
+        const signal = this.signals.get(key);
 
+        if (!signal) return true;
+
+        const entry = signal.get();
         if (!entry) return true;
 
         const now = Date.now();
@@ -76,7 +104,7 @@ export class QueryCache {
     }
 
     /**
-     * Set cached data
+     * Set cached data (updates signal)
      */
     set<T>(
         queryKey: QueryKeyInput,
@@ -84,28 +112,44 @@ export class QueryCache {
         options?: { staleTime?: number; cacheTime?: number }
     ): void {
         const key = this.generateKey(queryKey);
-
-        this.cache.set(key, {
+        const entry: CacheEntry = {
             data,
             timestamp: Date.now(),
             staleTime: options?.staleTime !== undefined ? options.staleTime : this.defaultStaleTime,
-            cacheTime: options?.cacheTime !== undefined ? options.cacheTime : this.defaultCacheTime
-        });
+            cacheTime: options?.cacheTime !== undefined ? options.cacheTime : this.defaultCacheTime,
+            key: Array.isArray(queryKey) ? queryKey : [queryKey]
+        };
+
+        const existingSignal = this.signals.get(key);
+        if (existingSignal) {
+            existingSignal.set(entry);
+        } else {
+            this.signals.set(key, createSignal<CacheEntry<T> | undefined>(entry));
+        }
     }
 
     /**
      * Invalidate queries matching the key prefix
+     * Marks them as undefined to trigger refetches without breaking subscriptions
      */
     invalidate(queryKey: QueryKeyInput): void {
         const prefix = this.generateKey(queryKey);
 
-        // Remove exact match
-        this.cache.delete(prefix);
+        const invalidateKey = (key: string) => {
+            const signal = this.signals.get(key);
+            if (signal) {
+                // Soft invalidation: Set to undefined to trigger listeners
+                signal.set(undefined);
+            }
+        };
 
-        // Remove all keys that start with this prefix
-        for (const key of this.cache.keys()) {
+        // Exact match
+        invalidateKey(prefix);
+
+        // Prefix matches
+        for (const key of this.signals.keys()) {
             if (key.startsWith(prefix.slice(0, -1))) {
-                this.cache.delete(key);
+                invalidateKey(key);
             }
         }
     }
@@ -114,7 +158,7 @@ export class QueryCache {
      * Remove all cache entries
      */
     clear(): void {
-        this.cache.clear();
+        this.signals.clear();
     }
 
     /**
@@ -135,10 +179,13 @@ export class QueryCache {
         this.gcInterval = setInterval(() => {
             const now = Date.now();
 
-            for (const [key, entry] of this.cache.entries()) {
+            for (const [key, signal] of this.signals.entries()) {
+                const entry = signal.get();
+                if (!entry) continue;
+
                 const age = now - entry.timestamp;
                 if (age > entry.cacheTime) {
-                    this.cache.delete(key);
+                    this.signals.delete(key);
                 }
             }
         }, 60 * 1000); // Run every minute
@@ -160,9 +207,52 @@ export class QueryCache {
      */
     getStats() {
         return {
-            size: this.cache.size,
-            keys: Array.from(this.cache.keys())
+            size: this.signals.size,
+            keys: Array.from(this.signals.keys())
         };
+    }
+
+    /**
+     * Get all entries (wrapper for DevTools)
+     */
+    getAll(): Map<string, CacheEntry> {
+        const map = new Map<string, CacheEntry>();
+        for (const [key, signal] of this.signals.entries()) {
+            const val = signal.get();
+            if (val) map.set(key, val);
+        }
+        return map;
+    }
+
+    // --- DEDUPLICATION ---
+    private deduplicationCache = new Map<string, Promise<any>>();
+
+    /**
+     * Fetch data with deduplication.
+     * If a request for the same key is already in flight, returns the existing promise.
+     */
+    async fetch<T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> {
+        const key = this.generateKey(queryKey);
+
+        // Return existing promise if in flight
+        if (this.deduplicationCache.has(key)) {
+            return this.deduplicationCache.get(key) as Promise<T>;
+        }
+
+        // Create new promise
+        const promise = fn().then(
+            (data) => {
+                this.deduplicationCache.delete(key);
+                return data;
+            },
+            (error) => {
+                this.deduplicationCache.delete(key);
+                throw error;
+            }
+        );
+
+        this.deduplicationCache.set(key, promise);
+        return promise;
     }
 }
 

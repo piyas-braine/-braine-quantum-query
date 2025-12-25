@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, type ReactNode } from 'react';
 import { QueryCache, queryCache as defaultCache } from './queryCache';
 
 // Re-export QueryCache as QueryClient for conceptual clarity if needed, 
