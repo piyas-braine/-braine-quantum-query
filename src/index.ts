@@ -6,3 +6,4 @@ export { enableDevTools } from './middleware/devtools';
 export { computed } from './core/computed';
 export * from './addon/httpClient';
 export * from './core/asyncUtils';
+export * from './addon/query';

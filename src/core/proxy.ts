@@ -1,5 +1,6 @@
 export const LISTENERS = new WeakMap<object, Set<() => void>>();
 export const PROXIES = new WeakMap<object, object>();
+export const PROXY_TO_TARGET = new WeakMap<object, object>(); // Reverse lookup
 
 let activeListener: (() => void) | null = null;
 
@@ -14,10 +15,13 @@ export function getActiveListener() {
 export const GLOBAL_LISTENERS = new WeakMap<object, Set<(target: any, prop: any, value: any) => void>>();
 
 export function subscribe(store: object, callback: (target: any, prop: any, value: any) => void) {
-    let listeners = GLOBAL_LISTENERS.get(store);
+    // RESOLVE TARGET: Use the WeakMap to find original target if 'store' is a proxy
+    const target = PROXY_TO_TARGET.get(store) || store;
+
+    let listeners = GLOBAL_LISTENERS.get(target);
     if (!listeners) {
         listeners = new Set();
-        GLOBAL_LISTENERS.set(store, listeners);
+        GLOBAL_LISTENERS.set(target, listeners);
     }
     listeners.add(callback);
     return () => listeners?.delete(callback);
@@ -25,7 +29,6 @@ export function subscribe(store: object, callback: (target: any, prop: any, valu
 
 import { isPromise, handlePromise, unwrapPromise } from './asyncUtils';
 
-// FIX: Use 'object' instead of 'any' to improve type safety
 const handler: ProxyHandler<object> = {
     get(target, prop, receiver) {
         if (activeListener) {
@@ -41,14 +44,6 @@ const handler: ProxyHandler<object> = {
 
         // Auto-unwrap promises (Supense support)
         if (isPromise(value)) {
-            // Check if looking for metadata
-            if (prop === '$state') {
-                // This is a bit tricky because proxy trap `get` is called for `value.$state`.
-                // But `value` is the promise... wait.
-                // If accessing `store.user` returns a promise, we are here.
-                // We can't easily add properties to the native Promise without mutating it or wrapping it.
-                // Let's stick to simple unwrapping for now.
-            }
             return unwrapPromise(value);
         }
 
@@ -83,8 +78,6 @@ const handler: ProxyHandler<object> = {
 
         // Notify global listeners (DevTools)
         const globals = GLOBAL_LISTENERS.get(target);
-        // Also need to find the root proxy?
-        // For now, let's just trigger direct subscribers.
         if (globals) {
             globals.forEach(cb => cb(target, prop, value));
         }
@@ -109,5 +102,6 @@ export function createState<T extends object>(initialState: T): T {
 
     const proxy = new Proxy(initialState, handler);
     PROXIES.set(initialState, proxy);
+    PROXY_TO_TARGET.set(proxy, initialState); // Track reverse mapping
     return proxy as T;
 }
