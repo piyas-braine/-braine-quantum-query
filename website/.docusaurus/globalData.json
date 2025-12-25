@@ -1,0 +1,48 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/-braine-quantum-query/",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/-braine-quantum-query/",
+          "mainDocId": "intro",
+          "docs": [
+            {
+              "id": "api",
+              "path": "/-braine-quantum-query/api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "intro",
+              "path": "/-braine-quantum-query/",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "migration",
+              "path": "/-braine-quantum-query/migration",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "recipes",
+              "path": "/-braine-quantum-query/recipes",
+              "sidebar": "tutorialSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "tutorialSidebar": {
+              "link": {
+                "path": "/-braine-quantum-query/",
+                "label": "intro"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

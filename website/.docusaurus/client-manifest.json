@@ -1,0 +1,243 @@
+{
+  "entrypoints": [
+    "main"
+  ],
+  "origins": {
+    "237": [
+      237
+    ],
+    "285": [
+      61,
+      401,
+      869,
+      285
+    ],
+    "17896441": [
+      285,
+      869,
+      401
+    ],
+    "main": [
+      354,
+      869,
+      792
+    ],
+    "runtime~main": [
+      792,
+      869,
+      354
+    ],
+    "0e384e19": [
+      976
+    ],
+    "1f391b9e": [
+      285,
+      869,
+      61
+    ],
+    "295b567d": [
+      549
+    ],
+    "349d099c": [
+      996
+    ],
+    "393be207": [
+      134
+    ],
+    "5e95c892": [
+      647
+    ],
+    "5fbc5cf1": [
+      624
+    ],
+    "8e33e675": [
+      677
+    ],
+    "a7456010": [
+      235
+    ],
+    "a7bd4aaa": [
+      98
+    ],
+    "a94703ab": [
+      869,
+      48
+    ],
+    "aba21aa0": [
+      742
+    ],
+    "styles": [
+      48,
+      61,
+      285,
+      354,
+      401,
+      792,
+      869
+    ]
+  },
+  "assets": {
+    "48": {
+      "js": [
+        {
+          "file": "assets/js/a94703ab.3536f120.js",
+          "hash": "2a8cfcb9ee392e67",
+          "publicPath": "/-braine-quantum-query/assets/js/a94703ab.3536f120.js"
+        }
+      ]
+    },
+    "61": {
+      "js": [
+        {
+          "file": "assets/js/1f391b9e.e00271c2.js",
+          "hash": "e107fb2385a2ef84",
+          "publicPath": "/-braine-quantum-query/assets/js/1f391b9e.e00271c2.js"
+        }
+      ]
+    },
+    "98": {
+      "js": [
+        {
+          "file": "assets/js/a7bd4aaa.0b489c09.js",
+          "hash": "d190bb00598b84fb",
+          "publicPath": "/-braine-quantum-query/assets/js/a7bd4aaa.0b489c09.js"
+        }
+      ]
+    },
+    "134": {
+      "js": [
+        {
+          "file": "assets/js/393be207.f20c36c9.js",
+          "hash": "74a498b43ca6b32b",
+          "publicPath": "/-braine-quantum-query/assets/js/393be207.f20c36c9.js"
+        }
+      ]
+    },
+    "235": {
+      "js": [
+        {
+          "file": "assets/js/a7456010.7bc947ef.js",
+          "hash": "b11f94c40a689ff4",
+          "publicPath": "/-braine-quantum-query/assets/js/a7456010.7bc947ef.js"
+        }
+      ]
+    },
+    "237": {
+      "js": [
+        {
+          "file": "assets/js/237.4ffb0700.js",
+          "hash": "16ce1dfa96929b87",
+          "publicPath": "/-braine-quantum-query/assets/js/237.4ffb0700.js"
+        }
+      ]
+    },
+    "285": {
+      "js": [
+        {
+          "file": "assets/js/285.24135cc4.js",
+          "hash": "aee31ec243bcf29d",
+          "publicPath": "/-braine-quantum-query/assets/js/285.24135cc4.js"
+        }
+      ]
+    },
+    "354": {
+      "js": [
+        {
+          "file": "assets/js/runtime~main.6c03ba4f.js",
+          "hash": "f8e2be5aeffb72ba",
+          "publicPath": "/-braine-quantum-query/assets/js/runtime~main.6c03ba4f.js"
+        }
+      ]
+    },
+    "401": {
+      "js": [
+        {
+          "file": "assets/js/17896441.ac8f6650.js",
+          "hash": "65251ddaa1bb2013",
+          "publicPath": "/-braine-quantum-query/assets/js/17896441.ac8f6650.js"
+        }
+      ]
+    },
+    "549": {
+      "js": [
+        {
+          "file": "assets/js/295b567d.11665241.js",
+          "hash": "7530448139714711",
+          "publicPath": "/-braine-quantum-query/assets/js/295b567d.11665241.js"
+        }
+      ]
+    },
+    "624": {
+      "js": [
+        {
+          "file": "assets/js/5fbc5cf1.d5f684fa.js",
+          "hash": "9a41ff3d9ac1ea7c",
+          "publicPath": "/-braine-quantum-query/assets/js/5fbc5cf1.d5f684fa.js"
+        }
+      ]
+    },
+    "647": {
+      "js": [
+        {
+          "file": "assets/js/5e95c892.9503a094.js",
+          "hash": "e9ea57905adba754",
+          "publicPath": "/-braine-quantum-query/assets/js/5e95c892.9503a094.js"
+        }
+      ]
+    },
+    "677": {
+      "js": [
+        {
+          "file": "assets/js/8e33e675.ec4f517c.js",
+          "hash": "92bd1740d0a26542",
+          "publicPath": "/-braine-quantum-query/assets/js/8e33e675.ec4f517c.js"
+        }
+      ]
+    },
+    "742": {
+      "js": [
+        {
+          "file": "assets/js/aba21aa0.6c061b4f.js",
+          "hash": "6ae5ca575f6a4bae",
+          "publicPath": "/-braine-quantum-query/assets/js/aba21aa0.6c061b4f.js"
+        }
+      ]
+    },
+    "792": {
+      "js": [
+        {
+          "file": "assets/js/main.6d0abf5a.js",
+          "hash": "989a1ac231aeb643",
+          "publicPath": "/-braine-quantum-query/assets/js/main.6d0abf5a.js"
+        }
+      ]
+    },
+    "869": {
+      "css": [
+        {
+          "file": "assets/css/styles.b0092fe2.css",
+          "hash": "589c7d10d503f645",
+          "publicPath": "/-braine-quantum-query/assets/css/styles.b0092fe2.css"
+        }
+      ]
+    },
+    "976": {
+      "js": [
+        {
+          "file": "assets/js/0e384e19.49f619df.js",
+          "hash": "0bb5682d78b5c74c",
+          "publicPath": "/-braine-quantum-query/assets/js/0e384e19.49f619df.js"
+        }
+      ]
+    },
+    "996": {
+      "js": [
+        {
+          "file": "assets/js/349d099c.b6c56078.js",
+          "hash": "8707a979f9f31276",
+          "publicPath": "/-braine-quantum-query/assets/js/349d099c.b6c56078.js"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "recipes",
+  "title": "Recipes",
+  "description": "Authentication Middleware",
+  "source": "@site/docs/recipes.md",
+  "sourceDirName": ".",
+  "slug": "/recipes",
+  "permalink": "/-braine-quantum-query/recipes",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Migrating from RTK Query",
+    "permalink": "/-braine-quantum-query/migration"
+  }
+}

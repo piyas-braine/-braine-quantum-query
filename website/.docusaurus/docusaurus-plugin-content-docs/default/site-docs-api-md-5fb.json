@@ -1,0 +1,23 @@
+{
+  "id": "api",
+  "title": "API Reference",
+  "description": "Hooks",
+  "source": "@site/docs/api.md",
+  "sourceDirName": ".",
+  "slug": "/api",
+  "permalink": "/-braine-quantum-query/api",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Introduction",
+    "permalink": "/-braine-quantum-query/"
+  },
+  "next": {
+    "title": "Migrating from RTK Query",
+    "permalink": "/-braine-quantum-query/migration"
+  }
+}
