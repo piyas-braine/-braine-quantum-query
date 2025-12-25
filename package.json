@@ -1,6 +1,6 @@
 {
   "name": "@braine/quantum-query",
-  "version": "1.2.2",
+  "version": "1.2.5",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -36,9 +36,17 @@
       "require": "./dist/index.cjs"
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piyas-braine/-braine-quantum-query.git"
+  },
   "types": "./dist/index.d.ts",
-  "author": "Antigravity",
+  "author": "Piyas Talukder",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/piyas-braine/-braine-quantum-query/issues"
+  },
+  "homepage": "https://piyas-braine.github.io/-braine-quantum-query",
   "description": "A high-performance, proxy-based state management library with built-in async handling.",
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

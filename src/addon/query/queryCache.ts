@@ -183,6 +183,23 @@ export class QueryCache {
     }
 
     /**
+     * Invalidate all queries
+     */
+    invalidateAll = (): void => {
+        for (const key of this.signals.keys()) {
+            this.signals.get(key)?.set(undefined);
+        }
+    }
+
+    /**
+     * Remove a specific query from cache
+     */
+    remove = (queryKey: QueryKeyInput): void => {
+        const key = this.generateKey(queryKey);
+        this.signals.delete(key);
+    }
+
+    /**
      * Invalidate queries matching the key prefix
      * Marks them as undefined to trigger refetches without breaking subscriptions
      */

@@ -9,7 +9,7 @@ export function useQueryCache() {
         const interval = setInterval(() => {
             // Polling for changes (Simple & Robust for DevTools)
             // In a real implementation, we would use a subscription model on the QueryCache
-            setCache({ ...client.getAll() });
+            setCache(new Map(client.getAll()));
         }, 500);
 
         return () => clearInterval(interval);

@@ -84,4 +84,29 @@ describe('QueryCache', () => {
         expect(stats.size).toBe(2);
         expect(stats.keys.length).toBe(2);
     });
+
+    it('should invalidate all queries (DevTools logic)', () => {
+        cache.set(['a'], 1);
+        cache.set(['b'], 2);
+
+        cache.invalidateAll();
+
+        // InvalidateAll sets data to undefined (soft invalidation)
+        expect(cache.get(['a'])).toBeUndefined();
+        expect(cache.get(['b'])).toBeUndefined();
+        // Keys should still exist (signals are present but empty)
+        expect(cache.getStats().size).toBe(2);
+    });
+
+    it('should remove specific query (DevTools logic)', () => {
+        cache.set(['a'], 1);
+        cache.set(['b'], 2);
+
+        cache.remove(['a']);
+
+        expect(cache.get(['a'])).toBeUndefined();
+        expect(cache.get(['b'])).toBe(2);
+        // Key should be gone
+        expect(cache.getStats().size).toBe(1);
+    });
 });
