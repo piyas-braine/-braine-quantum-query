@@ -16,11 +16,7 @@ describe('HttpClient Validation', () => {
             name: z.string()
         });
 
-        mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            text: async () => JSON.stringify({ id: 123, name: 'Alice' })
-        });
+        mockFetch.mockResolvedValue(new Response(JSON.stringify({ id: 123, name: 'Alice' }), { status: 200 }));
 
         const api = createHttpClient({});
 
@@ -37,11 +33,7 @@ describe('HttpClient Validation', () => {
         });
 
         // API returns bad data (name missing)
-        mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            text: async () => JSON.stringify({ id: 123 })
-        });
+        mockFetch.mockResolvedValue(new Response(JSON.stringify({ id: 123 }), { status: 200 }));
 
         const api = createHttpClient({});
 

@@ -7,16 +7,15 @@ global.fetch = mockFetch;
 describe('HttpClient Deduplication', () => {
     beforeEach(() => {
         mockFetch.mockReset();
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }));
     });
 
     it('should dedupe parallel GET requests', async () => {
         // Delay the first response so the second request hits while the first is pending
-        mockFetch.mockReturnValueOnce(new Promise(resolve =>
-            setTimeout(() => resolve({
-                ok: true,
-                status: 200,
-                text: async () => '{"count": 1}'
-            }), 100)
+        // Delay the first response so the second request hits while the first is pending
+        // Delay the first response so the second request hits while the first is pending
+        mockFetch.mockReturnValue(new Promise(resolve =>
+            setTimeout(() => resolve(new Response('{"count": 1}', { status: 200 })), 100)
         ));
 
         const api = createHttpClient({ baseURL: 'http://test' });
@@ -35,8 +34,8 @@ describe('HttpClient Deduplication', () => {
 
     it('should NOT dedupe distinct requests', async () => {
         mockFetch
-            .mockResolvedValueOnce({ ok: true, text: async () => '{}' })
-            .mockResolvedValueOnce({ ok: true, text: async () => '{}' });
+            .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+            .mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
         const api = createHttpClient({ baseURL: 'http://test' });
 
@@ -50,8 +49,8 @@ describe('HttpClient Deduplication', () => {
 
     it('should NOT dedupe POST requests', async () => {
         mockFetch
-            .mockResolvedValueOnce({ ok: true, text: async () => '{}' })
-            .mockResolvedValueOnce({ ok: true, text: async () => '{}' });
+            .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+            .mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
         const api = createHttpClient({ baseURL: 'http://test' });
 

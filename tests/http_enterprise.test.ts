@@ -18,9 +18,11 @@ describe('HttpClient Enterprise 2.0', () => {
     });
 
     it('should timeout if request takes too long', async () => {
-        mockFetch.mockImplementation(async (url, { signal }) => {
+        mockFetch.mockImplementation(async (input, init) => {
+            const signal = (input instanceof Request) ? input.signal : init?.signal;
+
             return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => resolve({ ok: true }), 5000);
+                const timer = setTimeout(() => resolve(new Response('{}', { status: 200 })), 5000);
                 if (signal) {
                     signal.addEventListener('abort', () => {
                         clearTimeout(timer);
@@ -42,18 +44,10 @@ describe('HttpClient Enterprise 2.0', () => {
 
     it('should retry on 500 error', async () => {
         // 1. Fail (500)
-        mockFetch.mockResolvedValueOnce({
-            ok: false,
-            status: 500,
-            text: async () => 'Error'
-        });
+        mockFetch.mockResolvedValueOnce(new Response('Error', { status: 500, statusText: 'Internal Server Error' }));
 
         // 2. Success (200)
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            status: 200,
-            text: async () => '{"id": 1}'
-        });
+        mockFetch.mockResolvedValueOnce(new Response('{"id": 1}', { status: 200 }));
 
         const api = createHttpClient({
             retry: { retries: 2, baseDelay: 100, maxDelay: 1000 }
@@ -70,11 +64,7 @@ describe('HttpClient Enterprise 2.0', () => {
     });
 
     it('should NOT retry on 404', async () => {
-        mockFetch.mockResolvedValueOnce({
-            ok: false,
-            status: 404,
-            text: async () => 'Not Found'
-        });
+        mockFetch.mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }));
 
         const api = createHttpClient({ retry: 3 });
 

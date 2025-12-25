@@ -135,15 +135,68 @@ const user = await api.get('/me', {
 
 ---
 
+## Enterprise Query Features ✨
+
+TanStack Query-level features with simpler API:
+
+```typescript
+import { useQuery, usePaginatedQuery, useInfiniteQuery, useMutation } from '@braine/quantum-query';
+
+// Background refetch (stale-while-revalidate)
+const { data, isStale } = useQuery({
+    queryKey: ['user'],
+    queryFn: () => api.get('/me'),
+    staleTime: 30000,
+    refetchOnWindowFocus: true  // Auto-refresh on tab return
+});
+
+// Pagination
+const { data, nextPage, hasNext } = usePaginatedQuery({
+    queryKey: ['users'],
+    queryFn: (page) => api.get(`/users?page=${page}`)
+});
+
+// Infinite Scroll
+const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
+    queryKey: ['feed'],
+    queryFn: ({ pageParam }) => api.get(`/feed?cursor=${pageParam}`),
+    getNextPageParam: (last) => last.nextCursor
+});
+
+// Optimistic Updates
+const addTodo = useMutation({
+    mutationFn: (todo) => api.post('/todos', todo),
+    onMutate: async (newTodo) => {
+        // Instant UI update
+        const prev = optimisticHelpers.getQueryData(['todos']);
+        optimisticHelpers.setQueryData(['todos'], old => [...old, newTodo]);
+        return { prev };
+    },
+    onError: (err, vars, ctx) => {
+        // Auto-rollback on error
+        optimisticHelpers.setQueryData(['todos'], ctx.prev);
+    }
+});
+```
+
+---
+
 ## Comparison
 
-| Feature | Redux Toolkit | TanStack Query | **Quantum-Query** |
+| Feature | Redux Toolkit + RTK Query | TanStack Query | **Quantum-Query** |
 | :--- | :--- | :--- | :--- |
-| **Philosophy** | Reducers + Thunks | Server Cache Only | **Unified Smart Models** |
-| **Boilerplate** | High | Medium | **Zero** |
-| **Performance** | O(N) Selectors | Good | **O(1) Direct Access** |
-| **Deduplication**| Yes | Yes | **Yes** |
-| **Bundle Size** | Heavy | Medium | **Tiny (<5kb)** |
+| **State + Queries** | Separate (Redux + RTK) | Queries only | **Unified** ✅ |
+| **Boilerplate** | High | Medium | **Minimal** ✅ |
+| **Performance** | Good | Good | **O(1) Reactivity** ✅ |
+| **Pagination** | Yes | Yes | **Yes** ✅ |
+| **Infinite Scroll** | Yes | Yes | **Yes** ✅ |
+| **Optimistic Updates** | Manual | Yes | **Yes** ✅ |
+| **Bundle Size** | ~40kb | ~13kb | **~8kb** ✅ |
+| **Learning Curve** | Steep | Medium | **Gentle** ✅ |
+
+**Alpha Status:** Battle-testing in progress. Use for new projects, migrate carefully for production.
+
+---
 
 ## License
 MIT
