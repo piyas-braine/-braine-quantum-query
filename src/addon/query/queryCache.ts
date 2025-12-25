@@ -37,7 +37,7 @@ export class QueryCache {
     /**
      * Generate cache key from query key array
      */
-    private generateKey(queryKey: QueryKeyInput): string {
+    private generateKey = (queryKey: QueryKeyInput): string => {
         if (Array.isArray(queryKey)) {
             return stableHash(queryKey);
         }
@@ -47,7 +47,7 @@ export class QueryCache {
     /**
      * Get data (wrapper around signal.get)
      */
-    get<T>(queryKey: QueryKeyInput): T | undefined {
+    get = <T>(queryKey: QueryKeyInput): T | undefined => {
         const key = this.generateKey(queryKey);
         const signal = this.signals.get(key);
 
@@ -72,7 +72,7 @@ export class QueryCache {
      * Get Signal for a key (Low level API for hooks)
      * Automatically creates a signal if one doesn't exist
      */
-    getSignal<T>(queryKey: QueryKeyInput): Signal<CacheEntry<T> | undefined> {
+    getSignal = <T>(queryKey: QueryKeyInput): Signal<CacheEntry<T> | undefined> => {
         const key = this.generateKey(queryKey);
         let signal = this.signals.get(key);
 
@@ -88,7 +88,7 @@ export class QueryCache {
     /**
      * Check if data is stale
      */
-    isStale(queryKey: QueryKeyInput): boolean {
+    isStale = (queryKey: QueryKeyInput): boolean => {
         const key = this.generateKey(queryKey);
         const signal = this.signals.get(key);
 
@@ -106,11 +106,11 @@ export class QueryCache {
     /**
      * Set cached data (updates signal)
      */
-    set<T>(
+    set = <T>(
         queryKey: QueryKeyInput,
         data: T,
         options?: { staleTime?: number; cacheTime?: number }
-    ): void {
+    ): void => {
         const key = this.generateKey(queryKey);
         const entry: CacheEntry = {
             data,
@@ -141,7 +141,7 @@ export class QueryCache {
     /**
      * Register a middleware plugin
      */
-    use(plugin: import('./types').QueryPlugin): this {
+    use = (plugin: import('./types').QueryPlugin): this => {
         this.plugins.push(plugin);
         return this;
     }
@@ -150,7 +150,7 @@ export class QueryCache {
      * Fetch data with deduplication.
      * If a request for the same key is already in flight, returns the existing promise.
      */
-    async fetch<T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> {
+    fetch = async <T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> => {
         const key = this.generateKey(queryKey);
         const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
 
@@ -186,7 +186,7 @@ export class QueryCache {
      * Invalidate queries matching the key prefix
      * Marks them as undefined to trigger refetches without breaking subscriptions
      */
-    invalidate(queryKey: QueryKeyInput): void {
+    invalidate = (queryKey: QueryKeyInput): void => {
         const prefix = this.generateKey(queryKey);
         const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
 
@@ -216,25 +216,25 @@ export class QueryCache {
     /**
      * Remove all cache entries
      */
-    clear(): void {
+    clear = (): void => {
         this.signals.clear();
     }
 
     /**
      * Prefetch data (same as set but explicit intent)
      */
-    prefetch<T>(
+    prefetch = <T>(
         queryKey: QueryKeyInput,
         data: T,
         options?: { staleTime?: number; cacheTime?: number }
-    ): void {
+    ): void => {
         this.set(queryKey, data, options);
     }
 
     /**
      * Garbage collection - remove expired entries
      */
-    private startGarbageCollection(): void {
+    private startGarbageCollection = (): void => {
         this.gcInterval = setInterval(() => {
             const now = Date.now();
 
@@ -253,7 +253,7 @@ export class QueryCache {
     /**
      * Stop garbage collection
      */
-    destroy(): void {
+    destroy = (): void => {
         if (this.gcInterval) {
             clearInterval(this.gcInterval);
             this.gcInterval = null;
@@ -264,7 +264,7 @@ export class QueryCache {
     /**
      * Get cache stats (for debugging)
      */
-    getStats() {
+    getStats = () => {
         return {
             size: this.signals.size,
             keys: Array.from(this.signals.keys())
@@ -274,7 +274,7 @@ export class QueryCache {
     /**
      * Get all entries (wrapper for DevTools)
      */
-    getAll(): Map<string, CacheEntry> {
+    getAll = (): Map<string, CacheEntry> => {
         const map = new Map<string, CacheEntry>();
         for (const [key, signal] of this.signals.entries()) {
             const val = signal.get();
