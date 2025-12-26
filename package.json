@@ -1,6 +1,6 @@
 {
   "name": "@braine/quantum-query",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -49,6 +49,7 @@
   "homepage": "https://piyas-braine.github.io/-braine-quantum-query",
   "description": "A high-performance, proxy-based state management library with built-in async handling.",
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/react": "^19.2.7",
@@ -63,5 +64,8 @@
     "vitest": "^4.0.16",
     "zod": "^4.2.1"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "dependencies": {
+    "@preact/signals-core": "^1.12.1"
+  }
 }

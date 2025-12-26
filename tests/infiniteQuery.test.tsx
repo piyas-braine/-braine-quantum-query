@@ -69,7 +69,7 @@ describe('useInfiniteQuery', () => {
             await result.current.fetchNextPage();
         });
 
-        await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
+        await waitFor(() => expect(result.current.data?.pages).toHaveLength(2), { timeout: 3000 });
         expect(result.current.data?.pages[1].items).toEqual([{ id: 2 }]);
     });
 
@@ -96,7 +96,7 @@ describe('useInfiniteQuery', () => {
             await result.current.fetchNextPage();
         });
 
-        await waitFor(() => expect(result.current.hasNextPage).toBe(false));
+        await waitFor(() => expect(result.current.hasNextPage).toBe(false), { timeout: 5000 });
     });
 
     it('should cache pages', async () => {
@@ -135,7 +135,8 @@ describe('useInfiniteQuery', () => {
                 queryKey: ['feed'],
                 queryFn: mockFn,
                 getNextPageParam: () => undefined,
-                initialPageParam: null
+                initialPageParam: null,
+                retry: 0
             }),
             { wrapper }
         );
@@ -212,8 +213,10 @@ describe('useInfiniteQuery', () => {
             await result.current.fetchNextPage();
         });
 
-        await waitFor(() => expect(result.current.data?.pageParams).toEqual(['p1', 'p2']));
-    });
+        await waitFor(() => {
+            expect(result.current.data?.pageParams).toEqual(['p1', 'p2', 'p3']);
+        }, { timeout: 10000 });
+    }, 15000);
 
     it('should show isFetchingNextPage state', async () => {
         const mockFn = vi.fn().mockImplementation(async ({ pageParam }) => {

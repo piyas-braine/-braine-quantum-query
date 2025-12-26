@@ -9,15 +9,26 @@ export const FetchMiddleware: Middleware<any> = async (ctx) => {
 // Retry Middleware
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+interface RetryConfig {
+    retries?: number;
+    baseDelay?: number;
+    maxDelay?: number;
+}
+
 export const RetryMiddleware: Middleware<any> = async (ctx, next) => {
-    const retryConfig = ctx.config.retry as any; // Cast or normalize
-    // We assume normalized config in ctx?
+    // Safe unknown cast with type guard or interface
+    const retryConfigRaw = ctx.config.retry as unknown;
 
-    if (!retryConfig) return next(ctx);
+    if (!retryConfigRaw) return next(ctx);
 
-    const { retries = 0, baseDelay = 1000, maxDelay = 3000 } = typeof retryConfig === 'number'
-        ? { retries: retryConfig }
-        : retryConfig;
+    let config: RetryConfig;
+    if (typeof retryConfigRaw === 'number') {
+        config = { retries: retryConfigRaw };
+    } else {
+        config = retryConfigRaw as RetryConfig;
+    }
+
+    const { retries = 0, baseDelay = 1000, maxDelay = 3000 } = config;
 
     const attempt = async (count: number): Promise<Response> => {
         try {
@@ -32,10 +43,10 @@ export const RetryMiddleware: Middleware<any> = async (ctx, next) => {
                 throw new HttpError(response.status, response.statusText);
             }
             return response;
-        } catch (err: any) {
+        } catch (err: unknown) {
             if (count < retries) {
                 // Ignore Abort
-                if (err.name === 'AbortError') throw err;
+                if (err instanceof Error && err.name === 'AbortError') throw err;
 
                 const d = Math.min(baseDelay * (2 ** count), maxDelay);
                 await delay(d);

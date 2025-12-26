@@ -15,6 +15,8 @@ export interface QueryObserverOptions<T> {
     refetchOnReconnect?: boolean;
     refetchInterval?: number;
     tags?: string[];
+    retry?: number | boolean;
+    retryDelay?: number | ((attemptIndex: number) => number);
 }
 
 export interface QueryObserverResult<T> {
@@ -116,7 +118,7 @@ export class QueryObserver<T> {
         });
     }
 
-    getSnapshot = (): QueryObserverResult<T> => {
+    private computeResult(): QueryObserverResult<T> {
         const entry = this.signal.get();
 
         const data = entry?.data;
@@ -126,9 +128,9 @@ export class QueryObserver<T> {
         const dataTimestamp = entry?.timestamp;
 
         const staleTime = this.options.staleTime ?? 0;
-        const isStale = dataTimestamp ? (Date.now() - dataTimestamp) > staleTime : true;
+        const isStale = (entry?.isInvalidated) || (dataTimestamp ? (Date.now() - dataTimestamp) > staleTime : true);
         const isError = status === 'error';
-        const isLoading = data === undefined; // Simplified loading definition per our discussion
+        const isLoading = data === undefined;
 
         const nextResult: QueryObserverResult<T> = {
             data,
@@ -141,13 +143,8 @@ export class QueryObserver<T> {
             refetch: this.refetch
         };
 
-        if (!this.currentResult) {
-            this.currentResult = nextResult;
-            return nextResult;
-        }
-
-        // Shallow compare to return the same object reference if possible
-        if (this.shallowEqual(this.currentResult, nextResult)) {
+        // Stability Check
+        if (this.currentResult && this.shallowEqual(this.currentResult, nextResult)) {
             return this.currentResult;
         }
 
@@ -155,17 +152,35 @@ export class QueryObserver<T> {
         return nextResult;
     }
 
-    private shallowEqual(objA: any, objB: any) {
+    getSnapshot = (): QueryObserverResult<T> => {
+        // If we don't have a result yet, compute it.
+        // Subsequent reads should ideally return the cached 'currentResult'
+        // UNLESS the signal has changed?
+        // useSyncExternalStore calls subscribe, then getSnapshot.
+        // If signal changes, we call notify(), which triggers React to call getSnapshot again.
+        // So getSnapshot SHOULD re-compute if needed.
+        // But to be safe and ensure stability during render phase:
+        if (!this.currentResult) {
+            return this.computeResult();
+        }
+        return this.currentResult;
+    }
+
+    private shallowEqual(objA: unknown, objB: unknown) {
         if (Object.is(objA, objB)) return true;
+
         if (typeof objA !== 'object' || objA === null || typeof objB !== 'object' || objB === null) return false;
 
-        const keysA = Object.keys(objA);
-        const keysB = Object.keys(objB);
+        const recordA = objA as Record<string, unknown>;
+        const recordB = objB as Record<string, unknown>;
+
+        const keysA = Object.keys(recordA);
+        const keysB = Object.keys(recordB);
 
         if (keysA.length !== keysB.length) return false;
 
         for (const key of keysA) {
-            if (!Object.prototype.hasOwnProperty.call(objB, key) || !Object.is(objA[key], objB[key])) {
+            if (!Object.prototype.hasOwnProperty.call(recordB, key) || !Object.is(recordA[key], recordB[key])) {
                 return false;
             }
         }
@@ -173,6 +188,9 @@ export class QueryObserver<T> {
     }
 
     private notify() {
+        // Pre-compute the new result so getSnapshot returns the fresh one immediately
+        this.computeResult();
+
         this.listeners.forEach(l => l());
         this.checkAndFetch();
     }
@@ -190,17 +208,13 @@ export class QueryObserver<T> {
             // Note: client.fetch handles deduplication and signal state updates (isFetching=true)
             let result = await this.client.fetch(this.options.queryKey,
                 (ctx) => this.options.queryFn(ctx),
-                { signal }
+                { signal, retry: this.options.retry, retryDelay: this.options.retryDelay }
             );
 
             // Validation via Plugin
             try {
                 result = validateWithSchema(result, this.options.schema);
             } catch (validationErr) {
-                this.client.set(this.options.queryKey, undefined as T, {
-                    staleTime: this.options.staleTime,
-                    cacheTime: this.options.cacheTime
-                });
                 // Force error state on signal
                 const current = this.signal.get();
                 this.signal.set({
@@ -220,9 +234,13 @@ export class QueryObserver<T> {
                 tags: this.options.tags
             });
 
-        } catch (err: any) {
-            if (err.name === 'AbortError') return;
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name === 'AbortError') return;
             // client.fetch handles error state updates
+            if (err instanceof Error && err.name !== 'AbortError') {
+                // Potentially log unexpected errors that aren't handling by client.fetch if needed, 
+                // but client.fetch generally handles the signal update.
+            }
         }
     }
 
@@ -230,12 +248,13 @@ export class QueryObserver<T> {
         if (this.options.enabled === false) return;
 
         const snapshot = this.getSnapshot();
+
         // Fetch if loading (no data) and not already fetching
         if (snapshot.isLoading && !snapshot.isFetching && !snapshot.isError) {
             this.fetch();
         }
         // Or if data exists but is stale
-        else if (snapshot.isStale && !snapshot.isFetching) {
+        else if (snapshot.isStale && !snapshot.isFetching && !snapshot.isError) {
             this.fetch();
         }
     }

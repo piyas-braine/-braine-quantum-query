@@ -34,7 +34,7 @@ export async function persistQueryClient(options: PersistQueryClientOptions) {
 
     // 3. Subscribe to changes via Plugin
     const save = () => {
-        const queries: any[] = [];
+        const queries: DehydratedQuery[] = [];
         const cacheMap = queryClient.getAll();
 
         for (const [keyStr, entry] of cacheMap.entries()) {

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryCache } from '../src/addon/query/queryCache';
-import { QueryPlugin } from '../src/addon/query/types';
+import type { QueryPlugin } from '../src/addon/query/types';
 
 describe('QueryCache Middleware', () => {
     let client: QueryCache;
 
     beforeEach(() => {
-        client = new QueryCache({ enableGC: false });
+        client = new QueryCache();
     });
 
     it('should trigger onFetchStart and onFetchSuccess hooks', async () => {
@@ -40,7 +40,7 @@ describe('QueryCache Middleware', () => {
         const error = new Error('boom');
 
         try {
-            await client.fetch(['error'], async () => { throw error; });
+            await client.fetch(['error'], async () => { throw error; }, { retry: 0 });
         } catch (e) {
             // expected
         }

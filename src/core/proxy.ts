@@ -12,9 +12,9 @@ export function getActiveListener() {
     return activeListener;
 }
 
-export const GLOBAL_LISTENERS = new WeakMap<object, Set<(target: any, prop: any, value: any) => void>>();
+export const GLOBAL_LISTENERS = new WeakMap<object, Set<(target: object, prop: string | symbol, value: unknown) => void>>();
 
-export function subscribe(store: object, callback: (target: any, prop: any, value: any) => void) {
+export function subscribe(store: object, callback: (target: object, prop: string | symbol, value: unknown) => void) {
     // RESOLVE TARGET: Use the WeakMap to find original target if 'store' is a proxy
     const target = PROXY_TO_TARGET.get(store) || store;
 

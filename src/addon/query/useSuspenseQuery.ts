@@ -1,4 +1,4 @@
-import { useQuery, type UseQueryOptions, type QueryResult } from './useQuery';
+import { useQuery, type UseQueryOptions, type UseQueryResult } from './useQuery';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
 import { type CacheEntry } from './queryCache';
@@ -6,7 +6,7 @@ import { type CacheEntry } from './queryCache';
 export interface UseSuspenseQueryOptions<T> extends UseQueryOptions<T> {
 }
 
-export type SuspenseQueryResult<T> = Omit<QueryResult<T>, 'data' | 'isLoading' | 'isError' | 'error'> & {
+export type SuspenseQueryResult<T> = Omit<UseQueryResult<T>, 'data' | 'isLoading' | 'isError' | 'error'> & {
     data: T; // Data is guaranteed to be present
 };
 

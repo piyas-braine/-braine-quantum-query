@@ -10,12 +10,10 @@ export type { UsePaginatedQueryOptions, PaginatedQueryResult } from './paginatio
 
 export * from './useQuery';
 export * from './useMutation';
-export * from './queryCache';
-export * from './context';
-export * from './hydration';
-export * from './infiniteQuery';
-export * from './devtools';
-export * from './useQueryCache';
-export type { QueryClientConfig, Schema } from './types';
+export { useQueryClient, QueryClientProvider } from './context';
+export { useInfiniteQuery } from './infiniteQuery';
+export { HydrationBoundary } from './HydrationBoundary';
+export { dehydrate, hydrate } from './hydration';
+export type { QueryPlugin } from './types';
 export type { Signal } from '../signals';
 export * from './useSuspenseQuery';

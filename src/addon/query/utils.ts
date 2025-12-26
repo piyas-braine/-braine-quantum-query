@@ -3,7 +3,7 @@
  * Deterministically hashes values to ensuring object key order doesn't affect the hash.
  * Handles: primitives, arrays, objects, nested structures.
  */
-export function stableHash(value: any): string {
+export function stableHash(value: unknown): string {
     if (value === null || typeof value !== 'object') {
         return String(value);
     }

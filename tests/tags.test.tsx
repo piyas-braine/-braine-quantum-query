@@ -1,82 +1,106 @@
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useQuery } from '../src/addon/query/useQuery';
 import { useMutation } from '../src/addon/query/useMutation';
-import { QueryClientProvider } from '../src/addon/query/context';
 import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryClientProvider } from '../src/addon/query/context';
 import React from 'react';
 
-const createQueryClient = () => new QueryCache();
+describe('Cache Tags Invalidation', () => {
+    let client: QueryCache;
+    let wrapper: React.FC<{ children: React.ReactNode }>;
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>
-);
-
-describe('Tag-based Invalidation', () => {
-    it('should invalidate queries with matching tags', async () => {
-        let queryCount = 0;
-        const queryFn = vi.fn(async () => {
-            queryCount++;
-            return { id: 1, name: 'Test' };
-        });
-
-        const { result } = renderHook(() => {
-            const query = useQuery({
-                queryKey: ['user', 1],
-                queryFn,
-                tags: ['users'],
-                staleTime: Infinity // Ensure it doesn't refetch automatically
-            });
-
-            const mutation = useMutation({
-                mutationFn: async () => { return { success: true }; },
-                invalidatesTags: ['users']
-            });
-
-            return { query, mutation };
-        }, { wrapper });
-
-        await waitFor(() => expect(result.current.query.data).toBeDefined());
-        expect(queryCount).toBe(1);
-
-        // Perform mutation
-        await result.current.mutation.mutate({});
-
-        await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true));
-
-        await waitFor(() => expect(queryCount).toBe(2));
+    beforeEach(() => {
+        client = new QueryCache();
+        wrapper = ({ children }) => (
+            <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        );
+        vi.clearAllMocks();
     });
 
-    it('should NOT invalidate queries with non-matching tags', async () => {
-        let queryCount = 0;
-        const queryFn = vi.fn(async () => {
-            queryCount++;
-            return 'data';
+    it('should invalidate queries with matching tags', async () => {
+        const fetchFn = vi.fn().mockImplementation(async () => {
+            return { data: 'data-' + Math.random() };
         });
 
-        const { result } = renderHook(() => {
-            const query = useQuery({
-                queryKey: ['posts'],
-                queryFn,
-                tags: ['posts'],
+        const { result } = renderHook(() =>
+            useQuery({
+                queryKey: ['user', 1],
+                queryFn: fetchFn,
+                tags: ['User'],
+                staleTime: 60000 // Verified cached
+            }),
+            { wrapper }
+        );
+
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
+        expect(fetchFn).toHaveBeenCalledTimes(1);
+
+        // Invalidate via Tags
+        await act(async () => {
+            client.invalidateTags(['User']);
+        });
+
+        // Should be stale and refetching?
+        // QueryObserver reacts to 'isInvalidated' by marking stale.
+        // If caching is active, it should auto-refetch if the observer is active.
+
+        await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    });
+
+    it('should work with useMutation invalidatesTags', async () => {
+        const fetchFn = vi.fn().mockResolvedValue('fresh');
+
+        // 1. Setup Query
+        const { result: queryResult } = renderHook(() =>
+            useQuery({
+                queryKey: ['user', 2],
+                queryFn: fetchFn,
+                tags: ['User_2'],
                 staleTime: Infinity
-            });
+            }),
+            { wrapper }
+        );
 
-            const mutation = useMutation({
-                mutationFn: async () => true,
-                invalidatesTags: ['comments'] // Different tag
-            });
+        await waitFor(() => expect(queryResult.current.data).toBe('fresh'));
 
-            return { query, mutation };
-        }, { wrapper });
+        // 2. Setup Mutation
+        const { result: mutationResult } = renderHook(() => useMutation({
+            mutationFn: async () => { return 'updated' },
+            invalidatesTags: ['User_2']
+        }), { wrapper });
 
-        await waitFor(() => expect(result.current.query.data).toBeDefined());
-        expect(queryCount).toBe(1);
+        // 3. Trigger Mutation
+        await act(async () => {
+            await mutationResult.current.mutateAsync();
+        });
 
-        await result.current.mutation.mutate({});
-        await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true));
+        // 4. Verify Refetch
+        await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    });
 
-        // Should NOT refetch
-        expect(queryCount).toBe(1);
+    it('should NOT invalidate queries without matching tags', async () => {
+        const fetchFn = vi.fn().mockResolvedValue('data');
+
+        renderHook(() =>
+            useQuery({
+                queryKey: ['user', 3],
+                queryFn: fetchFn,
+                tags: ['Safe'],
+                staleTime: Infinity
+            }),
+            { wrapper }
+        );
+
+        await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1));
+
+        await act(async () => {
+            client.invalidateTags(['Unrelated_Tag']);
+        });
+
+        // Wait a bit to ensure nothing happens
+        await new Promise(r => setTimeout(r, 100));
+
+        expect(fetchFn).toHaveBeenCalledTimes(1);
     });
 });

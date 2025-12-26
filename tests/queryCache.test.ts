@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { QueryCache } from '../src/addon/query/queryCache';
 
 describe('QueryCache', () => {
@@ -54,8 +54,11 @@ describe('QueryCache', () => {
 
         cache.invalidate(['users']);
 
-        expect(cache.get(['users', '1'])).toBeUndefined();
-        expect(cache.get(['users', '2'])).toBeUndefined();
+        // Soft invalidation: data remains, but isStale is true
+        expect(cache.get(['users', '1'])).toEqual({ id: 1 });
+        expect(cache.isStale(['users', '1'])).toBe(true);
+        expect(cache.get(['users', '2'])).toEqual({ id: 2 });
+        expect(cache.isStale(['users', '2'])).toBe(true);
         expect(cache.get(['posts', '1'])).toEqual({ id: 1 });
     });
 
@@ -91,10 +94,13 @@ describe('QueryCache', () => {
 
         cache.invalidateAll();
 
-        // InvalidateAll sets data to undefined (soft invalidation)
-        expect(cache.get(['a'])).toBeUndefined();
-        expect(cache.get(['b'])).toBeUndefined();
-        // Keys should still exist (signals are present but empty)
+        // InvalidateAll sets data to soft invalidated
+        expect(cache.get(['a'])).toEqual(1);
+        expect(cache.isStale(['a'])).toBe(true);
+        expect(cache.get(['b'])).toEqual(2);
+        expect(cache.isStale(['b'])).toBe(true);
+
+        // Keys should still exist (signals are present)
         expect(cache.getStats().size).toBe(2);
     });
 

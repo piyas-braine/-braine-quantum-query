@@ -1,8 +1,8 @@
 import { QueryCache } from '../query/queryCache';
 
 export interface DehydratedQuery {
-    queryKey: any[];
-    data: any;
+    queryKey: unknown[];
+    data: unknown;
     timestamp: number;
     staleTime: number;
     cacheTime: number;

@@ -8,7 +8,7 @@
  * - Manual signal updates for aggregate key to track fetching state of pages
  */
 
-import { useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useCallback, useRef, useSyncExternalStore, useMemo } from 'react';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
 import { type InfiniteData } from './types'; // types might be missing if not exported? I'll define inline if needed or re-export
@@ -16,7 +16,7 @@ import { getLogger } from './plugins/logger';
 
 // Ensure types are compatible
 export interface UseInfiniteQueryOptions<T, TPageParam = any> {
-    queryKey: any[];
+    queryKey: unknown[];
     queryFn: (context: { pageParam: TPageParam }) => Promise<T>;
     getNextPageParam?: (lastPage: T, allPages: T[]) => TPageParam | undefined;
     getPreviousPageParam?: (firstPage: T, allPages: T[]) => TPageParam | undefined;
@@ -24,6 +24,7 @@ export interface UseInfiniteQueryOptions<T, TPageParam = any> {
     staleTime?: number;
     cacheTime?: number;
     enabled?: boolean;
+    retry?: number | boolean;
 }
 
 export interface InfiniteQueryResult<T> {
@@ -49,19 +50,20 @@ export function useInfiniteQuery<T, TPageParam = any>({
     initialPageParam,
     staleTime = 0,
     cacheTime = 5 * 60 * 1000,
-    enabled = true
+    enabled = true,
+    retry
 }: UseInfiniteQueryOptions<T, TPageParam>): InfiniteQueryResult<T> {
     const client = useQueryClient();
     const queryKeyHash = stableHash(queryKey);
 
-    // Cache key for infinite query data
-    const infiniteQueryKey = [...queryKey, '__infinite__'];
+    // Cache key for infinite query data - Memoized stability
+    const infiniteQueryKey = useMemo(() => [...queryKey, '__infinite__'], [queryKeyHash]);
 
     // --- EXTERNAL STORE SUBSCRIPTION ---
     const subscribe = useCallback((onStoreChange: () => void) => {
         const signal = client.getSignal<InfiniteData<T>>(infiniteQueryKey);
         return signal.subscribe(() => onStoreChange());
-    }, [client, queryKeyHash]);
+    }, [client, infiniteQueryKey]); // Depend on the specific key object (memoized)
 
     const getSnapshot = useCallback(() => {
         const signal = client.getSignal<InfiniteData<T>>(infiniteQueryKey);
@@ -76,6 +78,7 @@ export function useInfiniteQuery<T, TPageParam = any>({
     const status = cacheEntry?.status || 'pending';
     const error = cacheEntry?.error || null;
     const timestamp = cacheEntry?.timestamp || 0;
+    const isInvalidated = cacheEntry?.isInvalidated || false;
 
     // --- DERIVED STATE (Reactive) ---
     // Calculate hasNext/Previous every render based on LATEST data
@@ -122,26 +125,77 @@ export function useInfiniteQuery<T, TPageParam = any>({
         if (!enabled) return;
 
         // Check staleness
-        // If data exists and is fresh, don't fetch
-        if (data && (Date.now() - timestamp) <= staleTime) return;
+        // If data exists, is fresh, AND not invalidated, don't fetch
+        if (data && !isInvalidated && (Date.now() - timestamp) <= staleTime) return;
+
         // Also don't fetch if already fetching (deduplication)
         if (isFetching) return;
 
         const doInitialFetch = async () => {
-            const initialParam = initialPageParamRef.current;
-            const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
-            // Key unused for aggregate logic but useful if we wanted to cache page separately
-            // const pageKey = [...infiniteQueryKey, 'initial', String(firstParam)];
-
             try {
-                // Use client.fetch on AGGREGATE key directly
+                // If we have existing data (revalidation/refetch), we try to fetch all pages again
+                // to preserve the list state, but we MUST follow the new chain constraints.
+                if (data && data.pageParams.length > 0) {
+                    const updatedPages: T[] = [];
+                    const updatedParams: TPageParam[] = [];
+
+                    // Start with the first param from the *new* context (or reuse initial)
+                    // But usually for infinite query, we assume initialParam is static or we use the cached first param?
+                    // We use the cached first param to start the chain.
+                    let param = data.pageParams[0];
+                    updatedParams.push(param as TPageParam);
+
+                    const limit = data.pages.length;
+
+                    const fetchedData = await client.fetch(infiniteQueryKey, async () => {
+                        for (let i = 0; i < limit; i++) {
+                            const page = await queryFnRef.current({ pageParam: param as TPageParam });
+                            updatedPages.push(page);
+
+                            // If we are at the limit, we don't need the next param for fetching *now*,
+                            // but we might need it for the *state*? 
+                            // Usually pageParams includes the param used to fetch the page.
+                            // The logic says: pageParams[i] corresponds to pages[i].
+
+                            if (i < limit - 1) {
+                                const next = getNextPageParamRef.current?.(page, updatedPages);
+                                if (next === undefined) break; // Chain ended early
+                                param = next;
+                                updatedParams.push(param as TPageParam);
+                            }
+                        }
+
+                        return {
+                            pages: updatedPages,
+                            pageParams: updatedParams
+                        };
+                    }, { fetchDirection: 'initial', retry });
+
+                    // We need to commit using the result from fetch? 
+                    // client.fetch returns the result of the callback.
+                    // But we want to ensure we commit it to the store.
+                    // Since we perform the fetch inside the wrapper, we can just use the variables.
+
+                    // Re-read updatedPages/Params in case they were modified? No.
+
+                    client.set(infiniteQueryKey, fetchedData, {
+                        staleTime: staleTimeRef.current,
+                        cacheTime: cacheTimeRef.current
+                    });
+                    return;
+                }
+
+                // Normal Initial Fetch (First page only)
+                const initialParam = initialPageParamRef.current;
+                const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
+
                 const initialData = await client.fetch(infiniteQueryKey, async () => {
                     const firstPage = await queryFnRef.current({ pageParam: firstParam });
                     return {
                         pages: [firstPage],
                         pageParams: [firstParam]
                     } as InfiniteData<T>;
-                }, { fetchDirection: 'initial' });
+                }, { fetchDirection: 'initial', retry });
 
                 // Commit to cache
                 client.set(infiniteQueryKey, initialData, {
@@ -150,15 +204,12 @@ export function useInfiniteQuery<T, TPageParam = any>({
                 });
             } catch (err) {
                 // handled by client.fetch
+                getLogger().error("Initial fetch failed", err);
             }
         };
 
         doInitialFetch();
-    }, [enabled, data === undefined, staleTime]);
-    // ^ Modified dependencies: only run if enabled changing, or data availability changing.
-    // Simpler check: if data is undefined, fetch. 
-    // If data becomes defined (fetch success), this effect runs but check logic returns.
-    // If we invalidate (data becomes undefined), it runs again.
+    }, [enabled, data === undefined, isInvalidated, staleTime, timestamp]);
 
     const fetchNextPage = useCallback(async () => {
         if (!hasNextPage || isFetching || !data) return;
@@ -183,19 +234,33 @@ export function useInfiniteQuery<T, TPageParam = any>({
                 if (!currentData) throw new Error("Infinite query data missing during fetchNextPage");
 
                 // 3. Return merged data
+                const nextCursor = getNextPageParamRef.current?.(newPage, [...currentData.pages, newPage]);
+                const updatedParams = [...currentData.pageParams, nextPageParam];
+                if (nextCursor !== undefined) {
+                    updatedParams.push(nextCursor as any); // Cast to any to satisfy flexible TPageParam
+                }
+
                 return {
                     pages: [...currentData.pages, newPage],
-                    pageParams: [...currentData.pageParams, nextPageParam],
+                    pageParams: updatedParams,
                 };
             }, {
-                fetchDirection: 'next'
+                fetchDirection: 'next',
+                retry
             });
 
             // Commit to cache
+
+            // Critical Fix: Ensure we are not throttled by React state updates
+            // Force the update to the store immediately.
             client.set(infiniteQueryKey, updatedData, {
                 staleTime: staleTimeRef.current,
                 cacheTime: cacheTimeRef.current
             });
+
+            // Re-eval hasNextPage? 
+            // The hook will re-render because it subscribes to the signal.
+
         } catch (err) {
             // client.fetch handles setting error state
             getLogger().error("Fetch next page failed", err);
@@ -221,7 +286,7 @@ export function useInfiniteQuery<T, TPageParam = any>({
                     pages: [newPage, ...currentData.pages],
                     pageParams: [previousPageParam, ...currentData.pageParams],
                 };
-            }, { fetchDirection: 'previous' });
+            }, { fetchDirection: 'previous', retry });
 
             // Commit
             client.set(infiniteQueryKey, updatedData, {

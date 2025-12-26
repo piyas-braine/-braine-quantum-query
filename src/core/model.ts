@@ -27,8 +27,8 @@ type ComputedValues<T> = {
 };
 
 // Simple debounce for saving state
-function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
-    let timeout: any;
+function debounce<T extends (...args: unknown[]) => unknown>(fn: T, ms: number) {
+    let timeout: ReturnType<typeof setTimeout>;
     return (...args: Parameters<T>) => {
         clearTimeout(timeout);
         timeout = setTimeout(() => fn(...args), ms);

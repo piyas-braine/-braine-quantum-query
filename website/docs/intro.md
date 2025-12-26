@@ -18,6 +18,7 @@ Existing libraries (Redux, RTK Query) behave like "Buses". They stop at every st
 **Quantum-Query** behaves like a teleporter. It updates *only* the specific component listening to a specific property, instantly.
 
 *   **O(1) Reactivity**: Powered by Atomic Signals. Zero selectors. No "Top-Down" re-renders.
+*   **Server-Side Rendering (SSR)**: First-class support for Next.js and Remix with simple hydration.
 *   **Zero Boilerplate**: No reducers, no providers, no slices, no thunks.
 *   **Enterprise Ecosystem**: Persistence, Plugins, Deduplication, and Validation included.
 

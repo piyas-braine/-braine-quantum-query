@@ -14,23 +14,13 @@ export interface DehydratedState {
  */
 export function dehydrate(client: QueryCache): DehydratedState {
     const queries: DehydratedState['queries'] = [];
-
-    // Access private signals? 
-    // We need a way to iterate queries. 
-    // QueryCache doesn't expose iteration publicly?
-    // We might need to add `getAll()` to QueryCache or access internal map if allowed.
-    // For now, let's assume we can add `getAll()` to QueryCache or use existing method.
-    // QueryCache has `signals` map private.
-    // We should add `snapshot()` method to QueryCache.
-
-    // Assuming client.snapshot() exists (we will add it).
-    const snapshot = client.snapshot();
+    const snapshot = client.getSnapshot();
 
     snapshot.forEach((signal, hash) => {
         const state = signal.get();
         if (state) {
             queries.push({
-                queryKey: state.key as unknown[], // Cast to mutable array for serialization
+                queryKey: state.key as unknown[],
                 queryHash: hash,
                 state: state
             });
@@ -47,29 +37,26 @@ export function hydrate(client: QueryCache, state: DehydratedState) {
     if (!state || !state.queries) return;
 
     state.queries.forEach(({ queryKey, state: queryState }) => {
-        // We set the state directly
-        // We might want to mark it as 'fresh' regarding hydration time?
-        // TanStack Query has options for overrides.
-        // Simple implementation:
-        client.set(queryKey, queryState.data, {
-            // We restore metadata
-            staleTime: queryState.staleTime,
-            cacheTime: queryState.cacheTime,
-            tags: queryState.tags
-        });
+        // We restore the state into Key-based storage
+        // This implicitly creates the signal if missing
+        const key = queryKey as QueryKeyInput;
 
-        // We unfortunately lost 'error' and 'status' in client.set signature if we only pass data?
-        // client.set signature: (key, data, options)
-        // options only allow staleTime/cacheTime.
-        // It updates status to 'success'.
-        // If we want to hydrate ERROR state or LOADING state?
-        // We need `client.restore(key, state)`.
+        // We use client.set to leverage standard flow, 
+        // BUT client.set forces status='success' and overwrites everything.
+        // We want to restore exact state (including errors etc).
+        // So we interpret the signal directly.
 
-        // Let's assume we implement `client.restore` or access signal directly.
-        const signal = client.getSignal(queryKey);
-        signal.set({
-            ...queryState,
-            // Ensure methods/prototypes are not expected on state (it's JSON)
-        });
+        // However, accessing storage directly is private.
+        // We should use a dedicated restore method on client or bypass via 'set' with care.
+        // Since we are inside the library, we can't access private members of client easily if strictly typed...
+        // But here we are in the same package (mostly).
+
+        // Actually best way: add `restore` to QueryCache.
+        // For now, let's use `set` and assume we are mostly restoring successful data.
+        // If we want perfection, we need `client.restore`.
+
+        // Let's rely on `client.set` for now as MVP, but it sets defaults.
+        // To do it 10/10, we should add `restore` to QueryCache.
+        client.restore(queryKey, queryState);
     });
 }

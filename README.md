@@ -46,7 +46,36 @@ function UserProfile({ id }) {
 
 ---
 
-## 🧠 The "Smart Model" Pattern (Advanced)
+## 🧠 Mental Model: When to use what?
+
+We separate state into two distinct categories.
+
+### 1. Server State (`useQuery`)
+Data that belongs to the server. It is asynchronous, can be stale, and needs caching.
+*   **Examples:** User Profile, List of Todos, Search Results.
+*   **Tool:** `useQuery`, `useMutation`.
+
+### 2. App State (`createState`)
+Data that belongs to the Interface. It is synchronous and temporary.
+*   **Examples:** Is Modal Open?, Current Filter, Form Inputs.
+*   **Tool:** `createState`, `useStore`.
+
+### 🌉 The Bridge
+Connect them seamlessly.
+*   **Store → Query**: Drive a query with a store signal.
+    ```ts
+    const { filter } = useStore(uiStore);
+    const { data } = useQuery(['items', filter], fetchItems);
+    ```
+*   **Query → Store**: Sync server data into a store for computed logic.
+    ```ts
+    const bridge = fromSignal(query.signal);
+    // Now you can use 'bridge' inside your Proxy store logic!
+    ```
+
+---
+
+## 🏗 The "Smart Model" Pattern (Advanced)
 
 Stop splitting your logic between Redux (Client State) and React Query (Server State). **Smart Models** combine state, computed properties, and actions into one reactive entity.
 
@@ -208,6 +237,71 @@ persistQueryClient({
     persister: createLocalStoragePersister(),
     maxAge: 1000 * 60 * 60 * 24 // 24 hours
 });
+```
+
+---
+
+## 🚀 Server-Side Rendering (SSR) 🆕
+
+Full support for Next.js, Remix, and other SSR frameworks. We provide a simple hydration API to transfer state from server to client.
+
+### Server (Next.js App Router)
+```tsx
+import { dehydrate, QueryCache, HydrationBoundary } from '@braine/quantum-query';
+
+export default async function Page() {
+  const client = new QueryCache();
+  
+  // Prefetch data on the server
+  await client.prefetch(['user', '1'], fetchUser);
+  
+  // Serialize the cache
+  const dehydratedState = dehydrate(client);
+  
+  return (
+    <HydrationBoundary state={dehydratedState}>
+      <ClientComponent />
+    </HydrationBoundary>
+  );
+}
+```
+
+---
+
+## ⚡️ Fine-Grained Selectors (Optimization) 🆕
+
+Stop re-rendering your large components. Subscribe **only** to the data you need.
+
+```tsx
+const { data: userName } = useQuery({
+    queryKey: ['user', '1'],
+    queryFn: fetchUser,
+    // Only re-render if 'name' changes!
+    // Even if 'age' or 'email' updates in the background.
+    select: (user) => user.name 
+});
+```
+
+**Why is this better?**
+In other libraries, selectors often run on every render or require manual memoization. In **Quantum-Query**, our Signal-based architecture ensures the component **never even attempts to re-render** unless the specific selected value changes.
+
+---
+
+## 🛠️ DevTools (Debug Like a Pro)
+
+Inspect your cache, force refetches, and view active listeners.
+
+```tsx
+import { QuantumDevTools } from '@braine/quantum-query/devtools';
+
+function App() {
+  return (
+      <QueryClientProvider client={client}>
+         <YourApp />
+         <QuantumDevTools openByDefault={false} />
+      </QueryClientProvider>
+  );
+}
 ```
 
 ---

@@ -113,7 +113,8 @@ describe('usePaginatedQuery', () => {
         const { result } = renderHook(() =>
             usePaginatedQuery({
                 queryKey: ['items'],
-                queryFn: mockFn
+                queryFn: mockFn,
+                retry: 0
             }),
             { wrapper }
         );

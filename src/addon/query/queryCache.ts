@@ -1,160 +1,76 @@
 /**
- * Global Query Cache
- * Stores query results with TTL, supports invalidation and garbage collection
+ * Global Query Cache (Facade)
+ * Orchestrates QueryStorage and QueryRemotes.
  */
 
-import { stableHash } from './utils';
-import { type Signal, createSignal } from '../signals';
+import { QueryStorage, type QueryKeyInput, type CacheEntry, type FetchDirection, type QueryKey } from './queryStorage';
+import { QueryRemotes } from './remotes';
 import { MutationCache } from './mutationCache';
+import { PluginManager } from './pluginManager';
+import { type Signal } from '../signals';
 
-export type QueryStatus = 'pending' | 'success' | 'error';
-export type FetchDirection = 'initial' | 'next' | 'previous' | 'idle';
-
-export interface CacheEntry<T = unknown> {
-    data: T | undefined;
-    status: QueryStatus;
-    error: Error | null;
-    isFetching: boolean;
-    fetchDirection: FetchDirection;
-    timestamp: number;
-    staleTime: number;
-    cacheTime: number;
-    key: QueryKeyInput;
-    tags?: string[];
-}
-
-export interface QueryKey {
-    key: readonly unknown[];
-    params?: Record<string, unknown>;
-}
-
-export type QueryKeyInput = readonly unknown[] | QueryKey;
+export type { QueryKeyInput, CacheEntry, QueryStatus, FetchDirection, QueryKey } from './queryStorage';
 
 export class QueryCache {
-    // Store signals instead of raw values
-    private signals = new Map<string, Signal<CacheEntry | undefined>>();
+    // Components
+    private storage: QueryStorage;
+    private remotes: QueryRemotes;
+
     // Mutation Cache
     public mutationCache = new MutationCache();
 
-    private readonly defaultStaleTime: number = 0; // Immediately stale
-    private readonly defaultCacheTime: number = 5 * 60 * 1000; // 5 minutes
+    // Plugins
+    private pluginManager = new PluginManager();
+
+    // Config defaults
+    private readonly defaultStaleTime: number;
+    private readonly defaultCacheTime: number;
 
     constructor(config?: { defaultStaleTime?: number; defaultCacheTime?: number }) {
-        if (config?.defaultStaleTime !== undefined) this.defaultStaleTime = config.defaultStaleTime;
-        if (config?.defaultCacheTime !== undefined) this.defaultCacheTime = config.defaultCacheTime;
+        this.defaultStaleTime = config?.defaultStaleTime ?? 0;
+        this.defaultCacheTime = config?.defaultCacheTime ?? 5 * 60 * 1000;
+
+        this.storage = new QueryStorage(this.defaultStaleTime, this.defaultCacheTime);
+        this.remotes = new QueryRemotes();
     }
 
-    /**
-     * Generate cache key from query key array
-     */
-    private generateKey = (queryKey: QueryKeyInput): string => {
-        if (Array.isArray(queryKey)) {
-            return stableHash(queryKey);
-        }
-        const input = queryKey as QueryKey;
-        return stableHash([input.key, input.params]);
-    }
+    // --- FACADE API ---
 
     /**
-     * Get data (wrapper around signal.get)
+     * Get data from storage
      */
     get = <T>(queryKey: QueryKeyInput): T | undefined => {
-        const key = this.generateKey(queryKey);
-        const signal = this.signals.get(key);
+        const key = this.storage.generateKey(queryKey);
+        const signal = this.storage.get<T>(key, false); // Do not auto-create
 
         if (!signal) return undefined;
 
         const entry = signal.get();
+
         if (!entry) return undefined;
 
         const now = Date.now();
         const age = now - entry.timestamp;
 
-        // Remove if past cache time
         if (age > entry.cacheTime) {
-            this.signals.delete(key);
+            this.storage.delete(key);
             return undefined;
         }
 
         return entry.data as T;
     }
 
-    // --- GARBAGE COLLECTION ---
-    private gcTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-    private scheduleGC = (key: string, cacheTime: number) => {
-        // If already scheduled, clear it
-        if (this.gcTimers.has(key)) {
-            clearTimeout(this.gcTimers.get(key)!);
-        }
-
-        const timer = setTimeout(() => {
-            this.signals.delete(key);
-            this.gcTimers.delete(key);
-        }, cacheTime);
-
-        this.gcTimers.set(key, timer);
-    }
-
-    private cancelGC = (key: string) => {
-        if (this.gcTimers.has(key)) {
-            clearTimeout(this.gcTimers.get(key)!);
-            this.gcTimers.delete(key);
-        }
-    }
-
     /**
-     * Get Signal for a key (Low level API for hooks)
-     * Automatically creates a signal if one doesn't exist
+     * Get Signal for reactivity (used by hooks)
      */
     getSignal = <T>(queryKey: QueryKeyInput): Signal<CacheEntry<T> | undefined> => {
-        const key = this.generateKey(queryKey);
-        let signal = this.signals.get(key);
-
-        if (!signal) {
-            // Lazy creation of signal with undefined initial value
-            // We use 'any' cast because Signal generic type is tricky with undefined initial
-            signal = createSignal<CacheEntry | undefined>(undefined, {
-                onActive: () => {
-                    this.cancelGC(key);
-                },
-                onInactive: () => {
-                    // When last observer leaves, schedule GC
-                    // We need the latest cacheTime from the entry
-                    const entry = this.signals.get(key)?.get();
-                    const cacheTime = entry?.cacheTime ?? this.defaultCacheTime;
-                    this.scheduleGC(key, cacheTime);
-                }
-            });
-            this.signals.set(key, signal);
-        }
-
-        return signal as unknown as Signal<CacheEntry<T> | undefined>;
+        const key = this.storage.generateKey(queryKey);
+        // Hooks DO want auto-creation
+        return this.storage.get<T>(key, true)!;
     }
 
     /**
-     * Check if data is stale
-     */
-    isStale = (queryKey: QueryKeyInput): boolean => {
-        const key = this.generateKey(queryKey);
-        const signal = this.signals.get(key);
-
-        if (!signal) return true;
-
-        const entry = signal.get();
-        if (!entry) return true;
-
-        const now = Date.now();
-        const age = now - entry.timestamp;
-
-        return age > entry.staleTime;
-    }
-
-    /**
-     * Set cached data (updates signal)
-     */
-    /**
-     * Set cached data (updates signal)
+     * Set data manually (Optimistic updates / Prefetch)
      */
     set = <T>(
         queryKey: QueryKeyInput,
@@ -166,57 +82,45 @@ export class QueryCache {
             tags?: string[];
         }
     ): void => {
-        const key = this.generateKey(queryKey);
-        // If entry exists, preserve other fields? Usually set invalidates 'error' and 'isFetching'.
-        // But for infinite query, we might want to preserve some things? 
-        // No, 'set' usually implies "I have the new data, I am done".
+        const key = this.storage.generateKey(queryKey);
 
-        const entry: CacheEntry = {
+        const entry: CacheEntry<T> = {
             data,
             status: 'success',
             error: null,
             isFetching: false,
-            fetchDirection: 'idle', // Reset to idle on success
+            fetchDirection: 'idle',
             timestamp: Date.now(),
-            staleTime: options?.staleTime !== undefined ? options.staleTime : this.defaultStaleTime,
-            cacheTime: options?.cacheTime !== undefined ? options.cacheTime : this.defaultCacheTime,
-            key: Array.isArray(queryKey) ? queryKey : [queryKey],
+            staleTime: options?.staleTime ?? this.defaultStaleTime,
+            cacheTime: options?.cacheTime ?? this.defaultCacheTime,
+            key: queryKey,
             tags: options?.tags
         };
 
-        const existingSignal = this.signals.get(key);
-        if (existingSignal) {
-            existingSignal.set(entry);
-        } else {
-            this.signals.set(key, createSignal<CacheEntry | undefined>(entry));
-        }
+        this.storage.set(key, entry as CacheEntry);
 
-        // Trigger onQueryUpdated hooks
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
-        this.plugins.forEach(p => p.onQueryUpdated?.(normalizedKey, data));
-    }
-
-    // ... (deduplication cache and plugins unchanged)
-
-    // --- DEDUPLICATION ---
-    private deduplicationCache = new Map<string, Promise<any>>();
-
-    // --- MIDDLEWARE / PLUGINS ---
-    private plugins: import('./types').QueryPlugin[] = [];
-
-    /**
-     * Register a middleware plugin
-     */
-    use = (plugin: import('./types').QueryPlugin): this => {
-        this.plugins.push(plugin);
-        return this;
+        // Trigger Plugins
+        const normalizedKey = this.normalizeKey(queryKey);
+        this.pluginManager.onQueryUpdated(normalizedKey, data);
     }
 
     /**
-     * Fetch data with deduplication.
+     * Restore cache entry (Hydration)
      */
+    restore = (queryKey: QueryKeyInput, entry: CacheEntry<any>): void => {
+        const key = this.storage.generateKey(queryKey);
+        this.storage.set(key, entry);
+
+        // Trigger Plugins?
+        // Usually hydration shouldn't trigger updates as it's initial state?
+        // But if we hydrate later, we might want to notify.
+        // For now, let's notify.
+        const normalizedKey = this.normalizeKey(queryKey);
+        this.pluginManager.onQueryUpdated(normalizedKey, entry.data);
+    }
+
     /**
-     * Fetch data with deduplication.
+     * Fetch data (Orchestration)
      */
     fetch = async <T>(
         queryKey: QueryKeyInput,
@@ -224,158 +128,129 @@ export class QueryCache {
         options?: {
             fetchDirection?: FetchDirection;
             signal?: AbortSignal;
+            retry?: number | boolean;
+            retryDelay?: number | ((attemptIndex: number) => number);
         }
     ): Promise<T> => {
-        const key = this.generateKey(queryKey);
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
+        const key = this.storage.generateKey(queryKey);
+        const normalizedKey = this.normalizeKey(queryKey);
         const direction = options?.fetchDirection || 'initial';
 
-        // Return existing promise if in flight
-        // We should arguably cancel the EXISTING promise if a NEW signal comes in?
-        // Or just let the existing one finish?
-        // TanStack Query behavior: deduplicates. If new observer mounts, it attaches to existing promise.
-        // If ALL observers unmount, we cancel.
-        // For now, simple dedupe.
-        if (this.deduplicationCache.has(key)) {
-            return this.deduplicationCache.get(key) as Promise<T>;
-        }
-
-        // Update Signal State: Fetching Start
-        const signal = this.getSignal<T>(queryKey);
+        // 1. Update Signal: Fetching Start
+        const signal = this.storage.get<T>(key, true)!;  // Force create
         const currentEntry = signal.get();
 
-        signal.set({
-            data: currentEntry?.data, // Keep old data
+        // Safe update of signal state without losing data
+        this.storage.set(key, {
+            data: currentEntry?.data,
             status: currentEntry?.status || 'pending',
-            error: null, // Clear error
-            isFetching: true,
+            error: null,
+            isFetching: true, // Mark fetching
             fetchDirection: direction,
             timestamp: currentEntry?.timestamp || Date.now(),
             staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
             cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
-            key: currentEntry?.key || (Array.isArray(queryKey) ? queryKey : [queryKey])
-        } as CacheEntry<T>); // Cast to strict T
+            key: queryKey,
+            tags: currentEntry?.tags
+        } as CacheEntry<T>); // Explicit cast to satisfy strictness if needed
 
-        // Trigger onFetchStart hooks
-        this.plugins.forEach(p => p.onFetchStart?.(normalizedKey));
+        this.pluginManager.onFetchStart(normalizedKey);
 
-        // Create new promise
-        const promise = fn({ signal: options?.signal }).then(
-            (data) => {
-                this.deduplicationCache.delete(key);
-                // Trigger onFetchSuccess hooks
-                this.plugins.forEach(p => p.onFetchSuccess?.(normalizedKey, data));
-                return data;
-            },
-            (error) => {
-                this.deduplicationCache.delete(key);
+        try {
+            // 2. Execute Remote Fetch (Deduplicated)
+            const data = await this.remotes.fetch(key, fn, {
+                signal: options?.signal,
+                retry: options?.retry,
+                retryDelay: options?.retryDelay
+            });
 
-                // Update Signal State: Fetch Error
-                const current = signal.get();
-                if (current) {
-                    signal.set({
-                        ...current,
-                        status: 'error',
-                        error: error,
-                        isFetching: false,
-                        fetchDirection: 'idle'
-                    });
-                }
+            this.pluginManager.onFetchSuccess(normalizedKey, data);
+            return data;
 
-                // Trigger onFetchError hooks
-                this.plugins.forEach(p => p.onFetchError?.(normalizedKey, error));
-                throw error;
+        } catch (error) {
+            // 3. Handle Error
+            const current = signal.get();
+            if (current) {
+                this.storage.set(key, {
+                    ...current,
+                    status: 'error',
+                    error: error as Error,
+                    isFetching: false,
+                    fetchDirection: 'idle'
+                });
             }
-        );
 
-        this.deduplicationCache.set(key, promise);
-
-        // Handle external signal aborting (optional optimization to remove from cache?)
-        // If options.signal is aborted, we might not be able to "abort" the promise if it's shared.
-        // But we are passing it to `fn`.
-
-        return promise;
-    }
-
-    /**
-     * Invalidate all queries
-     */
-    invalidateAll = (): void => {
-        for (const key of this.signals.keys()) {
-            this.signals.get(key)?.set(undefined);
+            this.pluginManager.onFetchError(normalizedKey, error as Error);
+            throw error;
         }
     }
 
     /**
-     * Remove a specific query from cache
-     */
-    remove = (queryKey: QueryKeyInput): void => {
-        const key = this.generateKey(queryKey);
-        this.signals.delete(key);
-    }
-
-    /**
-     * Invalidate queries matching the key prefix
-     * Marks them as undefined to trigger refetches without breaking subscriptions
+     * Invalidate queries
      */
     invalidate = (queryKey: QueryKeyInput): void => {
-        const prefix = this.generateKey(queryKey);
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
+        const prefix = this.storage.generateKey(queryKey);
+        const normalizedKey = this.normalizeKey(queryKey);
 
-        // Trigger onInvalidate hooks
-        this.plugins.forEach(p => p.onInvalidate?.(normalizedKey));
+        this.pluginManager.onInvalidate(normalizedKey);
 
-        const invalidateKey = (key: string) => {
-            const signal = this.signals.get(key);
-            if (signal) {
-                // Soft invalidation: Set to undefined to trigger listeners
-                signal.set(undefined);
-            }
-        };
-
-        // Exact match
-        invalidateKey(prefix);
-
-        // Prefix matches
-        for (const key of this.signals.keys()) {
-            if (key.startsWith(prefix.slice(0, -1))) {
-                invalidateKey(key);
-            }
-        }
-    }
-
-    /**
-     * Invalidate queries matching specific tags.
-     */
-    invalidateTags = (tags: string[]): void => {
-        const tagsToInvalidate = new Set(tags);
-
-        // Trigger onInvalidateTags logic (if we had plugins for it)
-
-        for (const [key, signal] of this.signals.entries()) {
-            const entry = signal.get();
-            if (entry && entry.tags) {
-                // Check if any intersection
-                const hasMatch = entry.tags.some(tag => tagsToInvalidate.has(tag));
-                if (hasMatch) {
-                    // Soft invalidation
-                    signal.set(undefined);
+        // Soft invalidation logic
+        const allKeys = this.storage.getSnapshot().keys();
+        for (const key of allKeys) {
+            if (key === prefix || key.startsWith(prefix.slice(0, -1))) {
+                // We set the signal to undefined? 
+                // Previous logic set it to undefined to trigger listeners.
+                // Or we can just mark it stale if we had a boolean?
+                // Setting to undefined forces a refresh in observers.
+                const signal = this.storage.get(key, false);
+                if (signal) {
+                    const current = signal.get();
+                    if (current) {
+                        signal.set({ ...current, isInvalidated: true });
+                    }
                 }
             }
         }
     }
 
+    invalidateTags = (tags: string[]): void => {
+        const tagsToInvalidate = new Set(tags);
+        const snapshot = this.storage.getSnapshot();
 
-    /**
-     * Remove all cache entries
-     */
-    clear = (): void => {
-        this.signals.clear();
+        for (const [key, signal] of snapshot.entries()) {
+            const entry = signal.get();
+            if (entry && entry.tags) {
+                if (entry.tags.some(tag => tagsToInvalidate.has(tag))) {
+                    signal.set({ ...entry, isInvalidated: true });
+                }
+            }
+        }
     }
 
-    /**
-     * Prefetch data (same as set but explicit intent)
-     */
+    // --- Helpers ---
+
+    use = (plugin: import('./types').QueryPlugin): this => {
+        this.pluginManager.add(plugin);
+        return this;
+    }
+
+    isStale = (queryKey: QueryKeyInput): boolean => {
+        // Should delegate to storage but depends on calculation?
+        // Storage has the data.
+        const key = this.storage.generateKey(queryKey);
+        const signal = this.storage.get(key);
+        const entry = signal?.get();
+        if (!entry) return true;
+        if (entry.isInvalidated) return true;
+        return (Date.now() - entry.timestamp) > entry.staleTime;
+    }
+
+    getAll = () => this.storage.getAll();
+    snapshot = () => this.storage.getSnapshot();
+    clear = () => this.storage.clear();
+    remove = (key: QueryKeyInput) => this.storage.delete(this.storage.generateKey(key));
+
+    // Restored Methods
     prefetch = <T>(
         queryKey: QueryKeyInput,
         data: T,
@@ -384,46 +259,26 @@ export class QueryCache {
         this.set(queryKey, data, options);
     }
 
-    /**
-     * Stop garbage collection (cleaning up pending timers)
-     */
     destroy = (): void => {
-        for (const timer of this.gcTimers.values()) {
-            clearTimeout(timer);
+        this.storage.clear(); // Clears timers and data
+    }
+
+    getStats = () => this.storage.getStats();
+
+    // For Hydration
+    getSnapshot = () => this.storage.getSnapshot();
+
+    invalidateAll = (): void => {
+        for (const key of this.storage.getSnapshot().keys()) {
+            const signal = this.storage.get(key);
+            const entry = signal?.get();
+            if (entry) {
+                signal?.set({ ...entry, isInvalidated: true });
+            }
         }
-        this.gcTimers.clear();
-        this.signals.clear();
     }
 
-    /**
-     * Get cache stats (for debugging)
-     */
-    getStats = () => {
-        return {
-            size: this.signals.size,
-            keys: Array.from(this.signals.keys())
-        };
-    }
-
-    /**
-     * Get all entries (wrapper for DevTools)
-     */
-    getAll = (): Map<string, CacheEntry> => {
-        const map = new Map<string, CacheEntry>();
-        for (const [key, signal] of this.signals.entries()) {
-            const val = signal.get();
-            if (val) map.set(key, val);
-        }
-        return map;
-    }
-
-    /**
-     * Get all active query signals (for Dehydration).
-     */
-    snapshot = (): Map<string, Signal<CacheEntry<any> | undefined>> => {
-        return this.signals;
+    private normalizeKey(queryKey: QueryKeyInput): unknown[] {
+        return Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
     }
 }
-
-// Global singleton removed to enforce Clean Architecture
-// export const queryCache = new QueryCache();

@@ -15,6 +15,7 @@ export interface UsePaginatedQueryOptions<T> {
     staleTime?: number;
     cacheTime?: number;
     enabled?: boolean;
+    retry?: number | boolean;
 }
 
 export interface PaginatedQueryResult<T> {
@@ -37,7 +38,8 @@ export function usePaginatedQuery<T>({
     pageSize = 20,
     staleTime,
     cacheTime,
-    enabled = true
+    enabled = true,
+    retry
 }: UsePaginatedQueryOptions<T>): PaginatedQueryResult<T> {
     const client = useQueryClient();
     const [page, setPage] = useState(0);
@@ -107,7 +109,7 @@ export function usePaginatedQuery<T>({
             // client.fetch handles signal update (isFetching=true) and error
             const result = await client.fetch(pageQueryKey, async () => {
                 return await queryFnRef.current(page);
-            });
+            }, { retry });
 
             // Update Cache
             client.set(pageQueryKey, result as T, {

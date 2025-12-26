@@ -14,9 +14,11 @@ Subscribes to a query and returns the current state.
 - `enabled?: boolean`: Set to `false` to disable automatic fetching.
 - `refetchOnWindowFocus?: boolean`: Refetch when window gains focus.
 - `schema?: Schema<T>`: Zod/Valibot schema for validation.
+- `select?: (data: T) => unknown`: Transform data. **Memoized** to prevent re-renders.
+- `tags?: string[]`: Array of tags for invalidation key grouping.
 
 **Returns**:
-- `data: T | undefined`: The resolved data.
+- `data: T | undefined`: The resolved data (or the result of `select`).
 - `isLoading: boolean`: True if no data exists.
 - `isFetching: boolean`: True if a network request is in flight.
 - `error: Error | null`: Error object if the last fetch failed.
@@ -32,6 +34,17 @@ Subscribes to a query and returns the current state.
 **Returns**:
 - `data: InfiniteData<T>`: Object containing `{ pages: T[], pageParams: any[] }`.
 - `fetchNextPage`, `hasNextPage`, `isFetchingNextPage`.
+
+## Server-Side Rendering (SSR)
+
+### `dehydrate(client: QueryCache)`
+Serializes the current cache state into a JSON-serializable object.
+
+### `hydrate(client: QueryCache, state: DehydratedState)`
+Restores a serialized state into the cache.
+
+### `<HydrationBoundary state={state}>`
+React component to hydrate the cache from server state for its children.
 
 ## Core Classes
 

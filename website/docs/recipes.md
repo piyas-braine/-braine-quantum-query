@@ -76,6 +76,7 @@ const handleAddTodo = async (newTodo) => {
 Simple implemention with a "Load More" button.
 
 ```tsx
+```tsx
 function PostList() {
     const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
         queryKey: ['posts'],
@@ -99,4 +100,40 @@ function PostList() {
         </div>
     );
 }
+```
+
+## Cache Tags (Invalidation Patterns)
+
+Target groups of queries for invalidation using **Tags** or **Hierarchical Keys**.
+
+### Option 1: Using Tags (Recommended)
+
+Assign tags to queries and invalidate them by tag.
+
+```tsx
+// 1. Assign Tag
+useQuery({
+    queryKey: ['user', id],
+    queryFn: fetchUser,
+    tags: ['User'] 
+});
+
+// 2. Invalidate Tag
+const mutation = useMutation({
+    mutationFn: updateUser,
+    invalidatesTags: ['User'] // Invalidates ALL queries with tag 'User'
+});
+```
+
+### Option 2: Hierarchical Keys
+
+Use the key structure itself as a tagging system.
+
+- `['posts']` -> Targets ALL posts.
+- `['posts', 'list']` -> Targets only the list.
+- `['posts', id]` -> Targets specific post.
+
+```tsx
+// Invalidates ['posts', 'list'], ['posts', 1], etc.
+queryCache.invalidate(['posts']);
 ```

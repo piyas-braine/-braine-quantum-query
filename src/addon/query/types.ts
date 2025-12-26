@@ -16,11 +16,11 @@ export interface QueryClientConfig {
  */
 export interface QueryPlugin {
     name: string;
-    onFetchStart?: (queryKey: any[]) => void;
-    onFetchSuccess?: (queryKey: any[], data: any) => void;
-    onFetchError?: (queryKey: any[], error: Error) => void;
-    onInvalidate?: (queryKey: any[]) => void;
-    onQueryUpdated?: (queryKey: any[], data: any) => void;
+    onFetchStart?: (queryKey: unknown[]) => void;
+    onFetchSuccess?: (queryKey: unknown[], data: unknown) => void;
+    onFetchError?: (queryKey: unknown[], error: Error) => void;
+    onInvalidate?: (queryKey: unknown[]) => void;
+    onQueryUpdated?: (queryKey: unknown[], data: unknown) => void;
 }
 
 export interface InfiniteData<T> {

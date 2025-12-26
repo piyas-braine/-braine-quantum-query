@@ -1,6 +1,11 @@
 import { subscribe } from '../core/proxy';
+import { registerStore } from '../devtools/registry';
 
 export function enableDevTools(store: any, name: string = 'Store') {
+    // 1. Register with Quantum DevTools (Built-in)
+    registerStore(store, name);
+
+    // 2. Connect to Redux DevTools Extension (External)
     if (typeof window === 'undefined' || !(window as any).__REDUX_DEVTOOLS_EXTENSION__) return;
 
     const devTools = (window as any).__REDUX_DEVTOOLS_EXTENSION__.connect({ name });
