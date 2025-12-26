@@ -27,7 +27,7 @@ export class QueryClient {
     // Config defaults
     private readonly defaultStaleTime: number;
     private readonly defaultCacheTime: number;
-    private readonly defaultSchema?: Schema<any>;
+    private readonly defaultSchema?: Schema<unknown>;
 
     constructor(config?: import('./types').QueryClientConfig) {
         this.defaultStaleTime = config?.defaultStaleTime ?? 0;
@@ -231,10 +231,6 @@ export class QueryClient {
         const allKeys = this.storage.getSnapshot().keys();
         for (const key of allKeys) {
             if (key === prefix || key.startsWith(prefix.slice(0, -1))) {
-                // We set the signal to undefined? 
-                // Previous logic set it to undefined to trigger listeners.
-                // Or we can just mark it stale if we had a boolean?
-                // Setting to undefined forces a refresh in observers.
                 const signal = this.storage.get(key, false);
                 if (signal) {
                     const current = signal.get();
@@ -308,8 +304,9 @@ export class QueryClient {
     getSnapshot = () => this.storage.getSnapshot();
 
     invalidateAll = (): void => {
-        for (const key of this.storage.getSnapshot().keys()) {
-            const signal = this.storage.get(key);
+        const snapshot = this.storage.getSnapshot();
+        for (const key of snapshot.keys()) {
+            const signal = this.storage.get(key, false);
             const entry = signal?.get();
             if (entry) {
                 signal?.set({ ...entry, isInvalidated: true });

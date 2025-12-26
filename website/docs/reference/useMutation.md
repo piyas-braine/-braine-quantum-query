@@ -16,6 +16,7 @@ const mutation = useMutation(options)
 | **`onSuccess`** | \`(data, variables, context)\` | - | Fired on success. |
 | **`onError`** | \`(err, variables, context)\` | - | Fired on error. |
 | **`onSettled`** | \`(data, err, variables)\` | - | Fired on success or error. |
+| **`invalidatesTags`** | \`string[]\` | - | Automatically invalidates these tags on success. |
 | **`optimistic`** | \`object\` | - | Declarative optimistic update config. |
 
 ### Optimistic Config

@@ -6,7 +6,14 @@ Most apps suffer from "State Schizophrenia". They split logic between:
 
 These two worlds rarely talk. You end up with synchronization bugs ("Why is my modal open if the user logout failed?").
 
-**Quantum Query** unifies them.
+**Quantum Query** unifies them through a **Clean Architecture** that decouples where data is stored from how it's fetched.
+
+## Architecture Purity
+
+The library is split into three distinct layers:
+1. **Remote Layer**: Handles deduplicating identical network requests and automatic retries.
+2. **Storage Layer**: A high-performance LRU cache that manages data expiration and Signal lifecycle.
+3. **Facade Layer**: The `QueryClient` provides a unified API to orchestrate these layers.
 
 ## The Two Types of State
 

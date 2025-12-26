@@ -22,6 +22,9 @@ const { data, isLoading, error } = useQuery(options)
 | **`initialData`** | \`T\` | - | Initial data to populate the cache. |
 | **`placeholderData`** | \`T\` | - | Data to show while loading (not cached). |
 | **`retry`** | \`boolean | number\` | \`3\` | Number of retries on failure. |
+| **`retryDelay`** | \`number | (attempt) => number\` | - | Delay between retries. |
+| **`tags`** | \`string[]\` | - | Tags for O(1) group invalidation. |
+| **`schema`** | \`Schema&lt;T&gt;\` | - | Zod-compatible validation schema. |
 
 ## Returns
 

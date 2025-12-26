@@ -55,8 +55,8 @@ export class QueryStorage {
                     this.cancelGC(key);
                 },
                 onInactive: () => {
-                    const entry = this.signals.get(key)?.get();
-                    const cacheTime = entry?.cacheTime ?? this.defaultCacheTime;
+                    const currentEntry = this.signals.get(key)?.get();
+                    const cacheTime = currentEntry?.cacheTime ?? this.defaultCacheTime;
                     this.scheduleGC(key, cacheTime);
                 }
             });
@@ -73,7 +73,7 @@ export class QueryStorage {
             signal = newSignal;
         }
 
-        return signal as Signal<CacheEntry<T> | undefined> | undefined;
+        return signal as unknown as Signal<CacheEntry<T> | undefined> | undefined;
     }
 
     private tagIndex = new Map<string, Set<string>>();
@@ -195,8 +195,15 @@ export class QueryStorage {
         };
     }
 
-    getSnapshot() {
-        return this.signals;
+    getSnapshot(): Map<string, CacheEntry<unknown>> {
+        const snapshot = new Map<string, CacheEntry<unknown>>();
+        for (const [key, signal] of this.signals.entries()) {
+            const value = signal.get();
+            if (value) {
+                snapshot.set(key, value);
+            }
+        }
+        return snapshot;
     }
 
     // --- GC Logic ---

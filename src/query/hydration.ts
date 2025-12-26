@@ -16,15 +16,12 @@ export function dehydrate(client: QueryClient): DehydratedState {
     const queries: DehydratedState['queries'] = [];
     const snapshot = client.getSnapshot();
 
-    snapshot.forEach((signal, hash) => {
-        const state = signal.get();
-        if (state) {
-            queries.push({
-                queryKey: state.key as unknown[],
-                queryHash: hash,
-                state: state
-            });
-        }
+    snapshot.forEach((state, hash) => {
+        queries.push({
+            queryKey: state.key as unknown[],
+            queryHash: hash,
+            state: state
+        });
     });
 
     return { queries };

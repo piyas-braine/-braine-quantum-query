@@ -3,6 +3,8 @@ import { type InfiniteData } from './types';
 import { type Signal, createSignal, computed, effect, untracked } from '../signals';
 import { stableHash, isDeepEqual } from './utils';
 import { getLogger } from './plugins/logger';
+import { focusManager } from './focusManager';
+import { onlineManager } from './onlineManager';
 
 export interface InfiniteQueryObserverOptions<T, TPageParam = unknown> {
     queryKey: unknown[];
@@ -13,6 +15,8 @@ export interface InfiniteQueryObserverOptions<T, TPageParam = unknown> {
     staleTime?: number;
     cacheTime?: number;
     enabled?: boolean;
+    refetchOnWindowFocus?: boolean;
+    refetchOnReconnect?: boolean;
     retry?: number | boolean;
 }
 
@@ -157,7 +161,25 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
             }
         });
 
-        this.unsubscribe = dispose;
+        const disposeFocus = focusManager.subscribe(() => {
+            const opts = this.options$.get();
+            if (opts.enabled !== false && opts.refetchOnWindowFocus !== false) {
+                this.fetchInitial();
+            }
+        });
+
+        const disposeOnline = onlineManager.subscribe((isOnline) => {
+            const opts = this.options$.get();
+            if (isOnline && opts.enabled !== false && opts.refetchOnReconnect !== false) {
+                this.fetchInitial();
+            }
+        });
+
+        this.unsubscribe = () => {
+            dispose();
+            disposeFocus();
+            disposeOnline();
+        };
     }
 
     fetchInitial = async (options?: { force?: boolean }) => {

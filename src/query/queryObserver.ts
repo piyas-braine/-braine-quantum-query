@@ -3,6 +3,8 @@ import { type Schema } from './types';
 import { type Signal, computed, effect, createSignal, untracked } from '../signals';
 import { stableHash, isDeepEqual } from './utils';
 import { validateWithSchema } from './plugins/validation';
+import { focusManager } from './focusManager';
+import { onlineManager } from './onlineManager';
 
 export interface QueryObserverOptions<T, TData = T> {
     queryKey: QueryKeyInput;
@@ -83,7 +85,6 @@ export class QueryObserver<T, TData = T> {
             const isPending = status === 'pending';
             const isLoading = data === undefined && isFetching;
 
-            // Selector Logic
             let finalData: TData | undefined;
             if (data !== undefined) {
                 try {
@@ -199,9 +200,25 @@ export class QueryObserver<T, TData = T> {
             return () => unsub();
         });
 
+        const disposeFocus = focusManager.subscribe(() => {
+            const opts = this.options$.get();
+            if (opts.enabled !== false && opts.refetchOnWindowFocus !== false) {
+                this.fetch();
+            }
+        });
+
+        const disposeOnline = onlineManager.subscribe((isOnline) => {
+            const opts = this.options$.get();
+            if (isOnline && opts.enabled !== false && opts.refetchOnReconnect !== false) {
+                this.fetch();
+            }
+        });
+
         this.unsubscribe = () => {
             disposeEffect();
             disposeGC();
+            disposeFocus();
+            disposeOnline();
         };
     }
 

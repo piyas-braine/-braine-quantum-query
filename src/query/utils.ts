@@ -40,35 +40,40 @@ export function stableHash(value: unknown, depth = 0): string {
  * Deep Equality Utility (Optimized for State Comparison)
  * Performs a structural check without stringification.
  */
-export function isDeepEqual(a: any, b: any): boolean {
+export function isDeepEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
 
     if (a && b && typeof a === 'object' && typeof b === 'object') {
-        if (a.constructor !== b.constructor) return false;
+        const objA = a as Record<string, unknown>;
+        const objB = b as Record<string, unknown>;
+
+        if (objA.constructor !== objB.constructor) return false;
 
         let length, i, keys;
         if (Array.isArray(a)) {
-            length = a.length;
-            if (length !== b.length) return false;
+            const arrA = a as unknown[];
+            const arrB = b as unknown[];
+            length = arrA.length;
+            if (length !== arrB.length) return false;
             for (i = length; i-- !== 0;) {
-                if (!isDeepEqual(a[i], b[i])) return false;
+                if (!isDeepEqual(arrA[i], arrB[i])) return false;
             }
             return true;
         }
 
-        if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
-        if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
+        if (objA.valueOf !== Object.prototype.valueOf) return objA.valueOf() === objB.valueOf();
+        if (objA.toString !== Object.prototype.toString) return objA.toString() === objB.toString();
 
-        keys = Object.keys(a);
+        keys = Object.keys(objA);
         length = keys.length;
-        if (length !== Object.keys(b).length) return false;
+        if (length !== Object.keys(objB).length) return false;
 
         for (const key of keys) {
-            if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+            if (!Object.prototype.hasOwnProperty.call(objB, key)) return false;
         }
 
         for (const key of keys) {
-            if (!isDeepEqual(a[key], b[key])) return false;
+            if (!isDeepEqual(objA[key], objB[key])) return false;
         }
 
         return true;
