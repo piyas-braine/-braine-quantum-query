@@ -48,5 +48,30 @@ const { mutate } = useMutation({
 });
 ```
 
+## Fine-Grained Reactivity (Signals)
+
+The killer feature of Quantum Query is **`useQuerySignal`**. Unlike standard hooks that re-render your component on every data change, `useQuerySignal` returns a stable reactive object.
+
+```tsx
+import { useQuerySignal } from '@braine/quantum-query';
+
+function StockTicker({ symbol }) {
+  // This component will NEVER re-render when price changes!
+  const signal = useQuerySignal({
+    queryKey: ['stock', symbol],
+    queryFn: fetchStockPrice,
+    refetchInterval: 1000
+  });
+
+  return (
+    <div>
+      <h3>{symbol}</h3>
+      {/* The text node updates directly via Signal binding */}
+      <p>Price: ${signal.value?.data?.price}</p>
+    </div>
+  );
+}
+```
+
 ## License
 MIT

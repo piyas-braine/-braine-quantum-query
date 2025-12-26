@@ -125,35 +125,20 @@ export function useInfiniteQuery<T, TPageParam = unknown>({
     const doInitialFetch = useCallback(async () => {
         try {
             // If we have existing data (revalidation/refetch), we try to fetch all pages again
+            // If we have existing data (revalidation/refetch), we default to a "Reset" strategy.
+            // Why? Fetching 50 pages sequentially ("The API Hammer") is dangerous and bad UX.
+            // We fetch the FIRST page only, effectively resetting the scroll.
+            // If users need to keep position, we'd need a much more complex "viewport" fetch strategy.
             if (data && data.pageParams.length > 0) {
-                const updatedPages: T[] = [];
-                const updatedParams: TPageParam[] = [];
+                const firstParam = data.pageParams[0];
+                const firstPage = await queryFnRef.current({ pageParam: firstParam as TPageParam });
 
-                let param = data.pageParams[0];
-                updatedParams.push(param as TPageParam);
+                const resetData = {
+                    pages: [firstPage],
+                    pageParams: [firstParam]
+                } as InfiniteData<T>;
 
-                const limit = data.pages.length;
-
-                const fetchedData = await client.fetch(infiniteQueryKey, async () => {
-                    for (let i = 0; i < limit; i++) {
-                        const page = await queryFnRef.current({ pageParam: param as TPageParam });
-                        updatedPages.push(page);
-
-                        if (i < limit - 1) {
-                            const next = getNextPageParamRef.current?.(page, updatedPages);
-                            if (next === undefined) break;
-                            param = next;
-                            updatedParams.push(param as TPageParam);
-                        }
-                    }
-
-                    return {
-                        pages: updatedPages,
-                        pageParams: updatedParams
-                    };
-                }, { fetchDirection: 'initial', retry });
-
-                client.set(infiniteQueryKey, fetchedData, {
+                client.set(infiniteQueryKey, resetData, {
                     staleTime: staleTimeRef.current,
                     cacheTime: cacheTimeRef.current
                 });

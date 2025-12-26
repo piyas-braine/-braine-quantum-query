@@ -225,13 +225,19 @@ export class QueryClient {
 
     invalidateTags = (tags: string[]): void => {
         const tagsToInvalidate = new Set(tags);
-        const snapshot = this.storage.getSnapshot();
 
-        for (const [key, signal] of snapshot.entries()) {
-            const entry = signal.get();
-            if (entry && entry.tags) {
-                if (entry.tags.some(tag => tagsToInvalidate.has(tag))) {
-                    signal.set({ ...entry, isInvalidated: true });
+        // Optimized O(1) Lookup
+        for (const tag of tagsToInvalidate) {
+            const keys = this.storage.getKeysByTag(tag);
+            if (keys) {
+                for (const key of keys) {
+                    const signal = this.storage.get(key, false); // Don't create
+                    if (signal) {
+                        const current = signal.get();
+                        if (current) {
+                            signal.set({ ...current, isInvalidated: true });
+                        }
+                    }
                 }
             }
         }

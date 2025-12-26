@@ -68,8 +68,32 @@ export class QueryStorage {
         return signal as unknown as Signal<CacheEntry<T> | undefined>;
     }
 
+    private tagIndex = new Map<string, Set<string>>();
+
     set(key: string, entry: CacheEntry): void {
         // console.log(`[Storage] SET ${key}`);
+
+        // Update Tag Index
+        const oldEntry = this.signals.get(key)?.get();
+        if (oldEntry?.tags) {
+            for (const tag of oldEntry.tags) {
+                const set = this.tagIndex.get(tag);
+                if (set) {
+                    set.delete(key);
+                    if (set.size === 0) this.tagIndex.delete(tag);
+                }
+            }
+        }
+
+        if (entry.tags) {
+            for (const tag of entry.tags) {
+                if (!this.tagIndex.has(tag)) {
+                    this.tagIndex.set(tag, new Set());
+                }
+                this.tagIndex.get(tag)!.add(key);
+            }
+        }
+
         const signal = this.signals.get(key);
         if (signal) {
             signal.set(entry);
@@ -89,12 +113,30 @@ export class QueryStorage {
 
     delete(key: string): void {
         // console.log(`[Storage] DELETE ${key}`);
+
+        // Remove from Tag Index
+        const entry = this.signals.get(key)?.get();
+        if (entry?.tags) {
+            for (const tag of entry.tags) {
+                const set = this.tagIndex.get(tag);
+                if (set) {
+                    set.delete(key);
+                    if (set.size === 0) this.tagIndex.delete(tag);
+                }
+            }
+        }
+
         this.signals.delete(key);
         this.cancelGC(key);
     }
 
+    getKeysByTag(tag: string): Set<string> | undefined {
+        return this.tagIndex.get(tag);
+    }
+
     clear(): void {
         this.signals.clear();
+        this.tagIndex.clear();
         this.gcTimers.forEach(timer => clearTimeout(timer));
         this.gcTimers.clear();
     }
@@ -112,7 +154,8 @@ export class QueryStorage {
         // console.log(`[Storage] STATS size=${this.signals.size} keys=${Array.from(this.signals.keys())}`);
         return {
             size: this.signals.size,
-            keys: Array.from(this.signals.keys())
+            keys: Array.from(this.signals.keys()),
+            tags: this.tagIndex.size
         };
     }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
 import { createSignal } from '../src/signals';
 
@@ -17,9 +17,11 @@ describe('Signal Batching', () => {
         expect(renderCount).toBe(1);
 
         // Update signal 100 times synchronously
-        for (let i = 1; i <= 100; i++) {
-            signal.set(i);
-        }
+        await act(async () => {
+            for (let i = 1; i <= 100; i++) {
+                signal.set(i);
+            }
+        });
 
         // Wait for microtask to flush
         await new Promise(resolve => queueMicrotask(resolve as VoidFunction));
@@ -51,12 +53,14 @@ describe('Signal Batching', () => {
         expect(signal2RenderCount).toBe(1);
 
         // Update both signals multiple times
-        signal1.set('x');
-        signal1.set('y');
-        signal1.set('z');
-        signal2.set('1');
-        signal2.set('2');
-        signal2.set('3');
+        await act(async () => {
+            signal1.set('x');
+            signal1.set('y');
+            signal1.set('z');
+            signal2.set('1');
+            signal2.set('2');
+            signal2.set('3');
+        });
 
         // Wait for batched updates
         await new Promise(resolve => queueMicrotask(resolve as VoidFunction));

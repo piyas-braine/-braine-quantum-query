@@ -152,3 +152,33 @@ export function useQuery<T, TData = T, TError = Error>(
         signal: signal as Signal<CacheEntry<T> | undefined> // Keep signal as T (source)
     };
 }
+
+/**
+ * Advanced: Access the raw signal for fine-grained reactivity (Bypasses React Render Loop)
+ * Use this with <SignalValue /> or similar helpers to update DOM without re-rendering components.
+ */
+export function useQuerySignal<T>(options: UseQueryOptions<T>): Signal<CacheEntry<T> | undefined> {
+    const client = useQueryClient();
+    // We can rely on the cache to hold the signal. 
+    // However, to ensure fetch triggers, we might need an observer side-effect?
+    // For pure signal access, we assume 'useQuery' or 'prefetch' has been called, 
+    // OR we can mount a "headless" observer.
+
+    // For now, simple access:
+    const signal = client.getSignal<T>(options.queryKey);
+
+    // Auto-fetch if stale? 
+    // Signals represent *state*, not *effects*. 
+    // If you want auto-fetch, you need an Observer. 
+    // Let's create a lightweight observer that stays alive? 
+    // Or just return the signal and let the user handle fetching?
+    // The "Better" way is to attach a headless observer.
+
+    useEffect(() => {
+        const observer = new QueryObserver<T>(client, options);
+        const unsubscribe = observer.subscribe(() => { }); // Keep alive
+        return () => unsubscribe();
+    }, [client, stableHash(options.queryKey)]);
+
+    return signal;
+}

@@ -49,13 +49,16 @@ describe('useQuery Schema Validation', () => {
         expect(result.current.data).toBeUndefined();
     });
 
-    it('should infer types correctly (compile time check)', () => {
+    it('should infer types correctly (compile time check)', async () => {
         // This test is mainly for manual verification or if we ran tsc
         const { result } = renderHook(() => useQuery({
             queryKey: ['user', 3],
             queryFn: async () => ({ id: 1, name: 'Bob', email: 'bob@example.com' }),
             schema: UserSchema
         }), { wrapper });
+
+        // Wait for fetch to complete to avoid "act" warnings about updates after test finishes
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
         // result.current.data should be typed as { id: number; name: string; email: string; } | undefined
         // We can't easily assert types in runtime tests, but if the code compiles, the inference is working enough to allow usage.
