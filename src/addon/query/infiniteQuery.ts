@@ -1,12 +1,20 @@
 /**
  * Infinite Query Hook (Reactive)
  * Provides infinite scroll with Signal-based reactivity
+ * 
+ * Refactored to "Senior Standards":
+ * - No local state (useReducer removed)
+ * - All state derived from Global QueryCache Signal
+ * - Manual signal updates for aggregate key to track fetching state of pages
  */
 
-import { useEffect, useCallback, useRef, useReducer, useSyncExternalStore } from 'react';
+import { useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
+import { type InfiniteData } from './types'; // types might be missing if not exported? I'll define inline if needed or re-export
+import { getLogger } from './plugins/logger';
 
+// Ensure types are compatible
 export interface UseInfiniteQueryOptions<T, TPageParam = any> {
     queryKey: any[];
     queryFn: (context: { pageParam: TPageParam }) => Promise<T>;
@@ -16,11 +24,6 @@ export interface UseInfiniteQueryOptions<T, TPageParam = any> {
     staleTime?: number;
     cacheTime?: number;
     enabled?: boolean;
-}
-
-export interface InfiniteData<T> {
-    pages: T[];
-    pageParams: any[];
 }
 
 export interface InfiniteQueryResult<T> {
@@ -36,60 +39,6 @@ export interface InfiniteQueryResult<T> {
     isError: boolean;
     error: Error | null;
     refetch: () => Promise<void>;
-}
-
-// Status state (local only)
-interface StatusState {
-    isFetching: boolean;
-    isFetchingNextPage: boolean;
-    isFetchingPreviousPage: boolean;
-    error: Error | null;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-}
-
-type StatusAction =
-    | { type: 'FETCH_START'; direction: 'initial' | 'next' | 'previous' }
-    | { type: 'FETCH_SUCCESS'; hasNextPage?: boolean; hasPreviousPage?: boolean }
-    | { type: 'FETCH_ERROR'; error: Error }
-    | { type: 'SET_PAGINATION'; hasNextPage?: boolean; hasPreviousPage?: boolean };
-
-function statusReducer(state: StatusState, action: StatusAction): StatusState {
-    switch (action.type) {
-        case 'FETCH_START':
-            return {
-                ...state,
-                isFetching: true,
-                isFetchingNextPage: action.direction === 'next',
-                isFetchingPreviousPage: action.direction === 'previous',
-                error: null,
-            };
-        case 'FETCH_SUCCESS':
-            return {
-                ...state,
-                isFetching: false,
-                isFetchingNextPage: false,
-                isFetchingPreviousPage: false,
-                hasNextPage: action.hasNextPage !== undefined ? action.hasNextPage : state.hasNextPage,
-                hasPreviousPage: action.hasPreviousPage !== undefined ? action.hasPreviousPage : state.hasPreviousPage,
-            };
-        case 'FETCH_ERROR':
-            return {
-                ...state,
-                isFetching: false,
-                isFetchingNextPage: false,
-                isFetchingPreviousPage: false,
-                error: action.error,
-            };
-        case 'SET_PAGINATION':
-            return {
-                ...state,
-                hasNextPage: action.hasNextPage !== undefined ? action.hasNextPage : state.hasNextPage,
-                hasPreviousPage: action.hasPreviousPage !== undefined ? action.hasPreviousPage : state.hasPreviousPage,
-            };
-        default:
-            return state;
-    }
 }
 
 export function useInfiniteQuery<T, TPageParam = any>({
@@ -108,7 +57,7 @@ export function useInfiniteQuery<T, TPageParam = any>({
     // Cache key for infinite query data
     const infiniteQueryKey = [...queryKey, '__infinite__'];
 
-    // --- EXTERNAL STORE SUBSCRIPTION (Concurrency Safe) ---
+    // --- EXTERNAL STORE SUBSCRIPTION ---
     const subscribe = useCallback((onStoreChange: () => void) => {
         const signal = client.getSignal<InfiniteData<T>>(infiniteQueryKey);
         return signal.subscribe(() => onStoreChange());
@@ -119,27 +68,40 @@ export function useInfiniteQuery<T, TPageParam = any>({
         return signal.get();
     }, [client, queryKeyHash]);
 
-    // Read data from external store
+    // Read full state from external store
     const cacheEntry = useSyncExternalStore(subscribe, getSnapshot);
     const data = cacheEntry?.data;
+    const isFetching = cacheEntry?.isFetching || false;
+    const fetchDirection = cacheEntry?.fetchDirection || 'idle';
+    const status = cacheEntry?.status || 'pending';
+    const error = cacheEntry?.error || null;
+    const timestamp = cacheEntry?.timestamp || 0;
 
-    // --- LOCAL STATUS STATE ---
-    const [statusState, dispatch] = useReducer(statusReducer, {
-        isFetching: false,
-        isFetchingNextPage: false,
-        isFetchingPreviousPage: false,
-        error: null,
-        hasNextPage: false, // Will be set after first fetch
-        hasPreviousPage: false,
-    });
+    // --- DERIVED STATE (Reactive) ---
+    // Calculate hasNext/Previous every render based on LATEST data
+    // This is "computed" derived state.
+    let hasNextPage = false;
+    let hasPreviousPage = false;
+    if (data && data.pages.length > 0) {
+        if (getNextPageParam) {
+            const lastPage = data.pages[data.pages.length - 1]!;
+            hasNextPage = getNextPageParam(lastPage, data.pages) !== undefined;
+        }
+        if (getPreviousPageParam) {
+            const firstPage = data.pages[0]!;
+            hasPreviousPage = getPreviousPageParam(firstPage, data.pages) !== undefined;
+        }
+    }
 
-    // Stable refs for dependencies
+    const isFetchingNextPage = isFetching && fetchDirection === 'next';
+    const isFetchingPreviousPage = isFetching && fetchDirection === 'previous';
+    const isLoading = data === undefined && isFetching;
+    const isError = status === 'error';
+
+    // --- STABLE REFS ---
     const queryFnRef = useRef(queryFn);
     const getNextPageParamRef = useRef(getNextPageParam);
     const getPreviousPageParamRef = useRef(getPreviousPageParam);
-    const initialFetchDoneRef = useRef(false);
-    const clientRef = useRef(client);
-    const infiniteQueryKeyRef = useRef(infiniteQueryKey);
     const initialPageParamRef = useRef(initialPageParam);
     const staleTimeRef = useRef(staleTime);
     const cacheTimeRef = useRef(cacheTime);
@@ -148,176 +110,146 @@ export function useInfiniteQuery<T, TPageParam = any>({
         queryFnRef.current = queryFn;
         getNextPageParamRef.current = getNextPageParam;
         getPreviousPageParamRef.current = getPreviousPageParam;
-        clientRef.current = client;
-        infiniteQueryKeyRef.current = infiniteQueryKey;
         initialPageParamRef.current = initialPageParam;
         staleTimeRef.current = staleTime;
         cacheTimeRef.current = cacheTime;
     });
 
-    // Detect invalidation and reset fetch tracker
-    const prevDataRef = useRef(data);
-    useEffect(() => {
-        // If data goes from defined to undefined, we've been invalidated
-        // NOTE: Soft invalidation in QueryCache now calls signal.set(undefined)
-        // so data triggers this effect.
-        if (prevDataRef.current && !data) {
-            initialFetchDoneRef.current = false; // Reset so refetch can run
-        }
-        prevDataRef.current = data;
-    }, [data]);
+    // --- FETCH LOGIC ---
 
-    // Initial fetch + Refetch on invalidation 
+    // Initial Fetch Effect
     useEffect(() => {
         if (!enabled) return;
-        if (data) return; // Don't run if we have data
 
-        const doFetch = async () => {
-            // Respect proper initial page param (including null)
+        // Check staleness
+        // If data exists and is fresh, don't fetch
+        if (data && (Date.now() - timestamp) <= staleTime) return;
+        // Also don't fetch if already fetching (deduplication)
+        if (isFetching) return;
+
+        const doInitialFetch = async () => {
             const initialParam = initialPageParamRef.current;
             const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
+            // Key unused for aggregate logic but useful if we wanted to cache page separately
+            // const pageKey = [...infiniteQueryKey, 'initial', String(firstParam)];
 
-            if (!initialFetchDoneRef.current) {
-                initialFetchDoneRef.current = true;
-            }
-
-            dispatch({ type: 'FETCH_START', direction: 'initial' });
-
-            // Use deduplication via client.fetch
-            // Uniqueness key includes initial param
-            const pageKey = [...infiniteQueryKey, 'initial', String(firstParam)];
-
-            let firstPage: T | undefined;
             try {
-                firstPage = await clientRef.current.fetch(pageKey, () =>
-                    queryFnRef.current({ pageParam: firstParam })
-                );
-            } catch (error) {
-                dispatch({ type: 'FETCH_ERROR', error: error as Error });
-                return;
-            }
+                // Use client.fetch on AGGREGATE key directly
+                const initialData = await client.fetch(infiniteQueryKey, async () => {
+                    const firstPage = await queryFnRef.current({ pageParam: firstParam });
+                    return {
+                        pages: [firstPage],
+                        pageParams: [firstParam]
+                    } as InfiniteData<T>;
+                }, { fetchDirection: 'initial' });
 
-            if (firstPage) {
-                const initialData: InfiniteData<T> = {
-                    pages: [firstPage],
-                    pageParams: [firstParam],
-                };
-
-                // Check for next page
-                let hasNext = false;
-                if (getNextPageParamRef.current) {
-                    const nextParam = getNextPageParamRef.current(firstPage, [firstPage]);
-                    hasNext = nextParam !== undefined;
-                }
-
-                // Update cache
-                clientRef.current.set(infiniteQueryKeyRef.current, initialData, {
+                // Commit to cache
+                client.set(infiniteQueryKey, initialData, {
                     staleTime: staleTimeRef.current,
                     cacheTime: cacheTimeRef.current
                 });
-                dispatch({ type: 'FETCH_SUCCESS', hasNextPage: hasNext });
+            } catch (err) {
+                // handled by client.fetch
             }
         };
 
-        doFetch();
-    }, [enabled, data]); // ONLY enabled and data!
-
-    const fetchPageHelper = useCallback(async (pageParam: TPageParam): Promise<T | undefined> => {
-        try {
-            // Deduplicate requests based on queryKey + pageParam
-            const pageKey = [...infiniteQueryKey, String(pageParam)];
-
-            return await clientRef.current.fetch(pageKey, () =>
-                queryFnRef.current({ pageParam })
-            );
-        } catch (error) {
-            dispatch({ type: 'FETCH_ERROR', error: error as Error });
-            return undefined;
-        }
-    }, [client, infiniteQueryKey]);
+        doInitialFetch();
+    }, [enabled, data === undefined, staleTime]);
+    // ^ Modified dependencies: only run if enabled changing, or data availability changing.
+    // Simpler check: if data is undefined, fetch. 
+    // If data becomes defined (fetch success), this effect runs but check logic returns.
+    // If we invalidate (data becomes undefined), it runs again.
 
     const fetchNextPage = useCallback(async () => {
-        if (!statusState.hasNextPage || statusState.isFetchingNextPage || !data) return;
+        if (!hasNextPage || isFetching || !data) return;
 
-        const lastPage = data.pages[data.pages.length - 1];
-        if (!lastPage || !getNextPageParamRef.current) return;
-
-        const nextPageParam = getNextPageParamRef.current(lastPage, data.pages);
+        const lastPage = data.pages[data.pages.length - 1]!;
+        const nextPageParam = getNextPageParamRef.current?.(lastPage, data.pages);
         if (nextPageParam === undefined) return;
 
-        dispatch({ type: 'FETCH_START', direction: 'next' });
-        const newPage = await fetchPageHelper(nextPageParam as TPageParam);
+        // Use client.fetch to manage state lifecycle automatically
+        // We wrap the page fetch + merge into a single async operation associated with the AGGREGATE key
+        try {
+            const updatedData = await client.fetch(infiniteQueryKey, async ({ signal }) => {
+                // 1. Fetch the new page
+                // call queryFn directly
+                const newPage = await queryFnRef.current({ pageParam: nextPageParam });
 
-        if (newPage) {
-            const updatedData: InfiniteData<T> = {
-                pages: [...data.pages, newPage],
-                pageParams: [...data.pageParams, nextPageParam],
-            };
+                // 2. Get latest data to merge
+                // We read directly from signal to avoid closure staleness
+                const currentEntry = client.getSignal<InfiniteData<T>>(infiniteQueryKey).get();
+                const currentData = currentEntry?.data;
 
-            let hasNext = false;
-            if (getNextPageParamRef.current) {
-                const nextParam = getNextPageParamRef.current(newPage, updatedData.pages);
-                hasNext = nextParam !== undefined;
-            }
+                if (!currentData) throw new Error("Infinite query data missing during fetchNextPage");
 
-            clientRef.current.set(infiniteQueryKeyRef.current, updatedData, {
+                // 3. Return merged data
+                return {
+                    pages: [...currentData.pages, newPage],
+                    pageParams: [...currentData.pageParams, nextPageParam],
+                };
+            }, {
+                fetchDirection: 'next'
+            });
+
+            // Commit to cache
+            client.set(infiniteQueryKey, updatedData, {
                 staleTime: staleTimeRef.current,
                 cacheTime: cacheTimeRef.current
             });
-            dispatch({ type: 'FETCH_SUCCESS', hasNextPage: hasNext });
+        } catch (err) {
+            // client.fetch handles setting error state
+            getLogger().error("Fetch next page failed", err);
         }
-    }, [statusState.hasNextPage, statusState.isFetchingNextPage, data, fetchPageHelper]);
+    }, [hasNextPage, isFetching, data, client, JSON.stringify(infiniteQueryKey)]);
 
     const fetchPreviousPage = useCallback(async () => {
-        if (!statusState.hasPreviousPage || statusState.isFetchingPreviousPage || !data) return;
+        if (!hasPreviousPage || isFetching || !data) return;
 
-        const firstPage = data.pages[0];
-        if (!firstPage || !getPreviousPageParamRef.current) return;
-
-        const previousPageParam = getPreviousPageParamRef.current(firstPage, data.pages);
+        const firstPage = data.pages[0]!;
+        const previousPageParam = getPreviousPageParamRef.current?.(firstPage, data.pages);
         if (previousPageParam === undefined) return;
 
-        dispatch({ type: 'FETCH_START', direction: 'previous' });
-        const newPage = await fetchPageHelper(previousPageParam as TPageParam);
+        try {
+            const updatedData = await client.fetch(infiniteQueryKey, async () => {
+                const newPage = await queryFnRef.current({ pageParam: previousPageParam });
+                const currentEntry = client.getSignal<InfiniteData<T>>(infiniteQueryKey).get();
+                const currentData = currentEntry?.data;
 
-        if (newPage) {
-            const updatedData: InfiniteData<T> = {
-                pages: [newPage, ...data.pages],
-                pageParams: [previousPageParam, ...data.pageParams],
-            };
+                if (!currentData) throw new Error("Infinite query data missing during fetchPreviousPage");
 
-            let hasPrev = false;
-            if (getPreviousPageParamRef.current) {
-                const prevParam = getPreviousPageParamRef.current(newPage, updatedData.pages);
-                hasPrev = prevParam !== undefined;
-            }
+                return {
+                    pages: [newPage, ...currentData.pages],
+                    pageParams: [previousPageParam, ...currentData.pageParams],
+                };
+            }, { fetchDirection: 'previous' });
 
-            clientRef.current.set(infiniteQueryKeyRef.current, updatedData, {
+            // Commit
+            client.set(infiniteQueryKey, updatedData, {
                 staleTime: staleTimeRef.current,
                 cacheTime: cacheTimeRef.current
             });
-            dispatch({ type: 'FETCH_SUCCESS', hasPreviousPage: hasPrev });
+        } catch (err) {
+            // Handled by client.fetch
+            getLogger().error("Fetch previous page failed", err);
         }
-    }, [statusState.hasPreviousPage, statusState.isFetchingPreviousPage, data, fetchPageHelper]);
+    }, [hasPreviousPage, isFetching, data, client, JSON.stringify(infiniteQueryKey)]);
 
     const refetch = useCallback(async () => {
-        initialFetchDoneRef.current = false;
-        // Invalidate via QueryCache will set data to undefined, triggering the effect
-        clientRef.current.invalidate(infiniteQueryKeyRef.current);
-    }, []);
+        client.invalidate(infiniteQueryKey);
+    }, [client, JSON.stringify(infiniteQueryKey)]);
 
     return {
         data,
         fetchNextPage,
         fetchPreviousPage,
-        hasNextPage: statusState.hasNextPage,
-        hasPreviousPage: statusState.hasPreviousPage,
-        isFetching: statusState.isFetching,
-        isFetchingNextPage: statusState.isFetchingNextPage,
-        isFetchingPreviousPage: statusState.isFetchingPreviousPage,
-        isLoading: data === undefined && statusState.isFetching,
-        isError: !!statusState.error,
-        error: statusState.error,
+        hasNextPage,
+        hasPreviousPage,
+        isFetching,
+        isFetchingNextPage,
+        isFetchingPreviousPage,
+        isLoading,
+        isError,
+        error,
         refetch
     };
 }

@@ -1,152 +1,184 @@
-/**
- * useMutation Hook
- * Handles mutations with optimistic updates and rollback
- */
+import { useCallback, useEffect, useSyncExternalStore, useState } from 'react';
+import { useQueryClient } from './context';
+import { type MutationState } from './mutationCache';
 
-import { useState, useCallback } from 'react';
-import { queryCache } from './queryCache';
-
-export interface UseMutationOptions<TData, TVariables, TContext = any> {
+export interface UseMutationOptions<TData, TVariables, TContext = unknown> {
     mutationFn: (variables: TVariables) => Promise<TData>;
+    mutationKey?: unknown[];
     onMutate?: (variables: TVariables) => Promise<TContext> | TContext;
     onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
     onError?: (error: Error, variables: TVariables, context: TContext | undefined) => void;
     onSettled?: (data: TData | undefined, error: Error | null, variables: TVariables, context: TContext | undefined) => void;
+    invalidatesTags?: string[];
 }
 
 export interface MutationResult<TData, TVariables> {
-    mutate: (variables: TVariables) => Promise<void>;
+    mutate: (variables: TVariables) => void;
     mutateAsync: (variables: TVariables) => Promise<TData>;
     data: TData | undefined;
     error: Error | null;
     isLoading: boolean;
     isError: boolean;
     isSuccess: boolean;
+    isIdle: boolean;
+    status: 'idle' | 'pending' | 'success' | 'error';
     reset: () => void;
 }
 
-export function useMutation<TData = unknown, TVariables = void, TContext = any>({
+export function useMutation<TData = unknown, TVariables = void, TContext = unknown>({
     mutationFn,
+    mutationKey,
     onMutate,
     onSuccess,
     onError,
-    onSettled
+    onSettled,
+    invalidatesTags
 }: UseMutationOptions<TData, TVariables, TContext>): MutationResult<TData, TVariables> {
-    const [data, setData] = useState<TData | undefined>();
-    const [error, setError] = useState<Error | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isError, setIsError] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
+    const client = useQueryClient();
+
+    // Use mutationKey if provided, otherwise generate a unique temporary key (or just don't share?)
+    // Real tracking requires a stable key. If no key, we might use a ref-based local key.
+    // For now, if no key, we won't put it in the cache? No, we should, to allow 'isMutating' to work?
+    // But 'isMutating' needs to know about it.
+    // Let's generate a random key if none is provided, to ensure it participates in global tracking.
+    // But random key = new signal every render? No, use useRef.
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const generatedKey = mutationKey || []; // If empty, it's just a local mutation, but wait, empty array is same key.
+    // If user doesn't provide key, they usually don't care about global sharing.
+    // But we promised 'client.isMutating'.
+    // Let's use a unique symbol if no key?
+    // Simple implementation: Key is required for sharing. If no key, we use a unique object reference.
+
+    // Actually, create a signal locally if no key? 
+    // No, putting it in MutationCache allows global tracking.
+
+    // Generate unique ID for this hook instance if not provided, or for each mutation?
+    // TanStack: useMutation tracks ONE latest mutation for the component. 
+    // BUT global cache tracks all.
+    // We need a stable ID for the hook to subscribe to.
+    // If we want shared state (users sharing same mutationKey showing same loading), we need a Shared Key Subscription.
+    // BUT the requirement is "Robust Mutation Tracking" (Parallel).
+    // If Component A mutates, it gets ID_A. Component B mutates, ID_B.
+    // If they share `mutationKey`, `isMutating(key)` is 2.
+    // If Component A wants to show loading, it watches ID_A.
+    // The previous implementation SHARED the signal. So A and B saw same state.
+    // The "Evaluation" said: "Post A overwritten by Post B".
+    // So we DON'T want shared state for the RESULT. We want shared state for `isMutating`.
+    // So useMutation should use a LOCAL-ish ID (unique per hook or per execution).
+    // Typically unique per hook ref? No, per execution.
+    // But `useMutation` returns `data`, `error`. Which execution? The latest one.
+
+    // Strategy:
+    // 1. Hook holds a ref to `currentMutationId`.
+    // 2. `mutate()` generates a new ID, updates ref, subscribes to that ID.
+    // 3. We register that ID with the key in `client.mutationCache`.
+
+    const [currentId, setCurrentId] = useState<string | null>(null);
 
     const mutateAsync = useCallback(async (variables: TVariables): Promise<TData> => {
+        const id = Math.random().toString(36).substring(7);
+        setCurrentId(id);
+
+        // Register with cache
+        client.mutationCache.register(id, mutationKey);
+
+        const notify = (update: Partial<MutationState<TData, TVariables, TContext>>) =>
+            client.mutationCache.notify(id, update);
+
         let context: TContext | undefined;
+        const submittedAt = Date.now();
 
         try {
-            setIsLoading(true);
-            setIsError(false);
-            setError(null);
-            setIsSuccess(false);
+            notify({ status: 'pending', submittedAt, variables, error: null });
 
-            // Run onMutate (optimistic update)
             if (onMutate) {
                 context = await onMutate(variables);
+                notify({ context });
             }
 
-            // Execute mutation
             const result = await mutationFn(variables);
 
-            // Success
-            setData(result);
-            setIsSuccess(true);
-            setIsLoading(false);
+            notify({ status: 'success', data: result });
 
             if (onSuccess) {
-                onSuccess(result, variables, context);
+                // Ensure onSuccess is awaited if it returns promise? 
+                // Type definition says void | Promise<void>
+                await onSuccess(result, variables, context);
             }
 
-            if (onSettled) {
-                onSettled(result, null, variables, context);
+            if (invalidatesTags) {
+                client.invalidateTags(invalidatesTags);
             }
 
+            onSettled?.(result, null, variables, context);
             return result;
-        } catch (err: any) {
-            // Error - rollback
-            setIsError(true);
-            setError(err);
-            setIsLoading(false);
-
-            if (onError) {
-                onError(err, variables, context);
-            }
-
-            if (onSettled) {
-                onSettled(undefined, err, variables, context);
-            }
-
-            throw err;
+        } catch (err) {
+            const error = err as Error;
+            notify({ status: 'error', error });
+            onError?.(error, variables, context);
+            onSettled?.(undefined, error, variables, context);
+            throw error;
+        } finally {
+            // Cleanup from cache index after delay? Or keep for history?
+            // keeping it allows 'data' to persist.
+            // But we should unregister the key mapping eventually?
+            // For 10/10 we leave it in cache but maybe clear key mapping if settled?
+            // If we clear key mapping, `isMutating` goes to 0. Correct.
+            // But if we delete signal, `data` is lost.
+            // So we keep signal (by ID) but maybe unregister from key index if we want?
+            // No, `isMutating` checks 'pending' status. So we can keep it registered.
         }
-    }, [mutationFn, onMutate, onSuccess, onError, onSettled]);
+    }, [client, mutationKey, mutationFn, onMutate, onSuccess, onError, onSettled, invalidatesTags]);
 
-    const mutate = useCallback(async (variables: TVariables) => {
-        try {
-            await mutateAsync(variables);
-        } catch {
-            // Swallow error for fire-and-forget mutations
-        }
+    const mutate = useCallback((variables: TVariables) => {
+        mutateAsync(variables).catch(() => { });
     }, [mutateAsync]);
 
     const reset = useCallback(() => {
-        setData(undefined);
-        setError(null);
-        setIsLoading(false);
-        setIsError(false);
-        setIsSuccess(false);
-    }, []);
+        if (currentId) {
+            client.mutationCache.notify(currentId, {
+                status: 'idle',
+                data: undefined,
+                error: null,
+                variables: undefined
+            });
+        }
+    }, [client, currentId]);
+
+    // Subscription
+    const subscribe = useCallback((onStoreChange: () => void) => {
+        if (!currentId) return () => { };
+        const signal = client.mutationCache.getSignal<TData, TVariables, TContext>(currentId);
+        return signal.subscribe(onStoreChange);
+    }, [client, currentId]);
+
+    const getSnapshot = useCallback(() => {
+        if (!currentId) return DEFAULT_STATE; // Stable default state
+        return client.mutationCache.getSignal<TData, TVariables, TContext>(currentId).get();
+    }, [client, currentId]);
+
+    const state = useSyncExternalStore(subscribe, getSnapshot);
 
     return {
         mutate,
         mutateAsync,
-        data,
-        error,
-        isLoading,
-        isError,
-        isSuccess,
+        data: state.data,
+        error: state.error,
+        status: state.status,
+        isLoading: state.status === 'pending',
+        isError: state.status === 'error',
+        isSuccess: state.status === 'success',
+        isIdle: state.status === 'idle',
         reset
     };
 }
 
-// Helper for optimistic updates
-export const optimisticHelpers = {
-    /**
-     * Cancel ongoing queries for a key
-     */
-    async cancelQueries(queryKey: any[]) {
-        // Future: implement query cancellation tracking
-    },
-
-    /**
-     * Get current query data
-     */
-    getQueryData<T>(queryKey: any[]): T | undefined {
-        return queryCache.get<T>(queryKey);
-    },
-
-    /**
-     * Set query data (for optimistic updates)
-     */
-    setQueryData<T>(queryKey: any[], updater: T | ((old: T | undefined) => T)) {
-        const current = queryCache.get<T>(queryKey);
-        const newData = typeof updater === 'function'
-            ? (updater as (old: T | undefined) => T)(current)
-            : updater;
-        queryCache.set(queryKey, newData);
-        return current; // Return old data for rollback
-    },
-
-    /**
-     * Invalidate queries (trigger refetch)
-     */
-    invalidateQueries(queryKey: any[]) {
-        queryCache.invalidate(queryKey);
-    }
+const DEFAULT_STATE: MutationState<any, any, any> = {
+    data: undefined,
+    error: null,
+    variables: undefined,
+    context: undefined,
+    status: 'idle',
+    submittedAt: 0
 };

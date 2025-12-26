@@ -4,8 +4,9 @@
  */
 
 // ... imports
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { queryCache } from './queryCache';
+// ... imports
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
+import { useQueryClient } from './context';
 
 export interface UsePaginatedQueryOptions<T> {
     queryKey: string[];
@@ -38,66 +39,92 @@ export function usePaginatedQuery<T>({
     cacheTime,
     enabled = true
 }: UsePaginatedQueryOptions<T>): PaginatedQueryResult<T> {
+    const client = useQueryClient();
     const [page, setPage] = useState(0);
-    const [data, setData] = useState<T | undefined>();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isError, setIsError] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
-    const [hasNext, setHasNext] = useState(true);
 
-    // Stable usage of queryFn
+    // Current page key
+    const pageQueryKey = [...queryKey, 'page', page];
+    const pageQueryKeyHash = JSON.stringify(pageQueryKey);
+
+    // --- EXTERNAL STORE SUBSCRIPTION ---
+    const subscribe = useCallback((onStoreChange: () => void) => {
+        const signal = client.getSignal<T>(pageQueryKey);
+        return signal.subscribe(() => onStoreChange());
+    }, [client, pageQueryKeyHash]);
+
+    const getSnapshot = useCallback(() => {
+        const signal = client.getSignal<T>(pageQueryKey);
+        return signal.get();
+    }, [client, pageQueryKeyHash]);
+
+    const cacheEntry = useSyncExternalStore(subscribe, getSnapshot);
+    const data = cacheEntry?.data;
+    const status = cacheEntry?.status || 'pending';
+    const error = cacheEntry?.error || null;
+    const isFetching = cacheEntry?.isFetching || false;
+    const dataTimestamp = cacheEntry?.timestamp;
+
+    // --- DERIVED STATE ---
+    const isError = status === 'error';
+    // Loading if no data and fetching (or pending execution)
+    const isLoading = data === undefined && (isFetching || status === 'pending');
+
+    // Derived hasNext
+    let hasNext = true;
+    if (data) {
+        if (Array.isArray(data)) {
+            hasNext = data.length === pageSize;
+        } else if (typeof data === 'object' && 'hasMore' in data) {
+            hasNext = (data as any).hasMore;
+        }
+    }
+    const hasPrevious = page > 0;
+
+    // --- STABLE REFS ---
     const queryFnRef = useRef(queryFn);
+    const staleTimeRef = useRef(staleTime);
+    const cacheTimeRef = useRef(cacheTime);
+
     useEffect(() => {
         queryFnRef.current = queryFn;
+        staleTimeRef.current = staleTime;
+        cacheTimeRef.current = cacheTime;
     });
 
-    // Stable query key hash
-    const queryKeyHash = JSON.stringify(queryKey);
-
-    const fetchPage = useCallback(async (pageNum: number) => {
+    // --- FETCH LOGIC ---
+    const fetchPage = useCallback(async (background = false) => {
         if (!enabled) return;
 
-        const pageQueryKey = [...queryKey, 'page', pageNum];
-
-        // Check cache first
-        const cached = queryCache.get<T>(pageQueryKey);
-        if (cached && !queryCache.isStale(pageQueryKey)) {
-            setData(cached);
-            setIsLoading(false);
-            return;
+        // Check freshness locally if not forced
+        if (!background) {
+            const currentEntry = getSnapshot();
+            if (currentEntry && (Date.now() - currentEntry.timestamp) <= (staleTimeRef.current || 0)) {
+                return;
+            }
         }
 
         try {
-            setIsLoading(true);
-            setIsError(false);
-            setError(null);
+            // client.fetch handles signal update (isFetching=true) and error
+            const result = await client.fetch(pageQueryKey, async () => {
+                return await queryFnRef.current(page);
+            });
 
-            const result = await queryFnRef.current(pageNum);
-
-            // Cache the result
-            queryCache.set(pageQueryKey, result, { staleTime, cacheTime });
-
-            setData(result);
-
-            // Detect if there's a next page (heuristic: if we got less than pageSize, no next page)
-            if (Array.isArray(result)) {
-                setHasNext(result.length === pageSize);
-            } else if (result && typeof result === 'object' && 'hasMore' in result) {
-                setHasNext((result as any).hasMore);
-            }
-
-            setIsLoading(false);
+            // Update Cache
+            client.set(pageQueryKey, result as T, {
+                staleTime: staleTimeRef.current,
+                cacheTime: cacheTimeRef.current
+            });
         } catch (err) {
-            setIsError(true);
-            setError(err as Error);
-            setIsLoading(false);
+            // Error handled by client.fetch (sets signal status='error')
         }
-    }, [queryKeyHash, enabled, pageSize, staleTime, cacheTime]); // Stable deps
+    }, [pageQueryKeyHash, enabled, client, getSnapshot, page]); // Stable deps
 
-    // Fetch data when page or enabled changes
+    // Fetch on mount or page change
     useEffect(() => {
-        fetchPage(page);
-    }, [page, fetchPage]); // fetchPage is stable if enabled/pageSize/staleTime/cacheTime/queryKeyHash are stable
+        if (enabled) {
+            fetchPage();
+        }
+    }, [fetchPage, enabled]);
 
     const nextPage = useCallback(() => {
         if (hasNext) {
@@ -112,10 +139,9 @@ export function usePaginatedQuery<T>({
     }, [page]);
 
     const refetch = useCallback(async () => {
-        // Invalidate cache and refetch
-        queryCache.invalidate([...queryKey, 'page', String(page)]);
-        await fetchPage(page);
-    }, [queryKeyHash, page, fetchPage]);
+        client.invalidate(pageQueryKey);
+        await fetchPage();
+    }, [pageQueryKeyHash, fetchPage, client]);
 
     return {
         data,
@@ -127,7 +153,7 @@ export function usePaginatedQuery<T>({
         nextPage,
         previousPage,
         hasNext,
-        hasPrevious: page > 0,
+        hasPrevious,
         refetch
     };
 }

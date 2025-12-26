@@ -41,9 +41,13 @@ export function QuantumDevTools() {
     const filteredEntries = useMemo(() => {
         if (!filter) return entries;
         const search = filter.toLowerCase();
-        return entries.filter(([_, entry]) =>
-            entry.key.some(k => String(k).toLowerCase().includes(search))
-        );
+        return entries.filter(([_, entry]) => {
+            const key = entry.key;
+            if (Array.isArray(key)) {
+                return key.some((k: unknown) => String(k).toLowerCase().includes(search));
+            }
+            return JSON.stringify(key).toLowerCase().includes(search);
+        });
     }, [entries, filter]);
 
     if (!isOpen) {

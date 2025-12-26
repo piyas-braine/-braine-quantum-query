@@ -5,33 +5,43 @@
 
 import { stableHash } from './utils';
 import { type Signal, createSignal } from '../signals';
+import { MutationCache } from './mutationCache';
 
-export interface CacheEntry<T = any> {
-    data: T;
+export type QueryStatus = 'pending' | 'success' | 'error';
+export type FetchDirection = 'initial' | 'next' | 'previous' | 'idle';
+
+export interface CacheEntry<T = unknown> {
+    data: T | undefined;
+    status: QueryStatus;
+    error: Error | null;
+    isFetching: boolean;
+    fetchDirection: FetchDirection;
     timestamp: number;
     staleTime: number;
     cacheTime: number;
-    key: any[];
+    key: QueryKeyInput;
+    tags?: string[];
 }
 
 export interface QueryKey {
-    key: any[];
-    params?: Record<string, any>;
+    key: readonly unknown[];
+    params?: Record<string, unknown>;
 }
 
-export type QueryKeyInput = any[] | QueryKey;
+export type QueryKeyInput = readonly unknown[] | QueryKey;
 
 export class QueryCache {
     // Store signals instead of raw values
     private signals = new Map<string, Signal<CacheEntry | undefined>>();
-    private gcInterval: ReturnType<typeof setInterval> | null = null;
-    private readonly defaultStaleTime = 0; // Immediately stale
-    private readonly defaultCacheTime = 5 * 60 * 1000; // 5 minutes
+    // Mutation Cache
+    public mutationCache = new MutationCache();
 
-    constructor(config?: { enableGC?: boolean }) {
-        if (config?.enableGC !== false) {
-            this.startGarbageCollection();
-        }
+    private readonly defaultStaleTime: number = 0; // Immediately stale
+    private readonly defaultCacheTime: number = 5 * 60 * 1000; // 5 minutes
+
+    constructor(config?: { defaultStaleTime?: number; defaultCacheTime?: number }) {
+        if (config?.defaultStaleTime !== undefined) this.defaultStaleTime = config.defaultStaleTime;
+        if (config?.defaultCacheTime !== undefined) this.defaultCacheTime = config.defaultCacheTime;
     }
 
     /**
@@ -41,7 +51,8 @@ export class QueryCache {
         if (Array.isArray(queryKey)) {
             return stableHash(queryKey);
         }
-        return stableHash([queryKey.key, queryKey.params]);
+        const input = queryKey as QueryKey;
+        return stableHash([input.key, input.params]);
     }
 
     /**
@@ -68,6 +79,30 @@ export class QueryCache {
         return entry.data as T;
     }
 
+    // --- GARBAGE COLLECTION ---
+    private gcTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    private scheduleGC = (key: string, cacheTime: number) => {
+        // If already scheduled, clear it
+        if (this.gcTimers.has(key)) {
+            clearTimeout(this.gcTimers.get(key)!);
+        }
+
+        const timer = setTimeout(() => {
+            this.signals.delete(key);
+            this.gcTimers.delete(key);
+        }, cacheTime);
+
+        this.gcTimers.set(key, timer);
+    }
+
+    private cancelGC = (key: string) => {
+        if (this.gcTimers.has(key)) {
+            clearTimeout(this.gcTimers.get(key)!);
+            this.gcTimers.delete(key);
+        }
+    }
+
     /**
      * Get Signal for a key (Low level API for hooks)
      * Automatically creates a signal if one doesn't exist
@@ -78,11 +113,23 @@ export class QueryCache {
 
         if (!signal) {
             // Lazy creation of signal with undefined initial value
-            signal = createSignal<CacheEntry<T> | undefined>(undefined);
+            // We use 'any' cast because Signal generic type is tricky with undefined initial
+            signal = createSignal<CacheEntry | undefined>(undefined, {
+                onActive: () => {
+                    this.cancelGC(key);
+                },
+                onInactive: () => {
+                    // When last observer leaves, schedule GC
+                    // We need the latest cacheTime from the entry
+                    const entry = this.signals.get(key)?.get();
+                    const cacheTime = entry?.cacheTime ?? this.defaultCacheTime;
+                    this.scheduleGC(key, cacheTime);
+                }
+            });
             this.signals.set(key, signal);
         }
 
-        return signal as Signal<CacheEntry<T> | undefined>;
+        return signal as unknown as Signal<CacheEntry<T> | undefined>;
     }
 
     /**
@@ -106,31 +153,50 @@ export class QueryCache {
     /**
      * Set cached data (updates signal)
      */
+    /**
+     * Set cached data (updates signal)
+     */
     set = <T>(
         queryKey: QueryKeyInput,
         data: T,
-        options?: { staleTime?: number; cacheTime?: number }
+        options?: {
+            staleTime?: number;
+            cacheTime?: number;
+            fetchDirection?: FetchDirection;
+            tags?: string[];
+        }
     ): void => {
         const key = this.generateKey(queryKey);
+        // If entry exists, preserve other fields? Usually set invalidates 'error' and 'isFetching'.
+        // But for infinite query, we might want to preserve some things? 
+        // No, 'set' usually implies "I have the new data, I am done".
+
         const entry: CacheEntry = {
             data,
+            status: 'success',
+            error: null,
+            isFetching: false,
+            fetchDirection: 'idle', // Reset to idle on success
             timestamp: Date.now(),
             staleTime: options?.staleTime !== undefined ? options.staleTime : this.defaultStaleTime,
             cacheTime: options?.cacheTime !== undefined ? options.cacheTime : this.defaultCacheTime,
-            key: Array.isArray(queryKey) ? queryKey : [queryKey]
+            key: Array.isArray(queryKey) ? queryKey : [queryKey],
+            tags: options?.tags
         };
 
         const existingSignal = this.signals.get(key);
         if (existingSignal) {
             existingSignal.set(entry);
         } else {
-            this.signals.set(key, createSignal<CacheEntry<T> | undefined>(entry));
+            this.signals.set(key, createSignal<CacheEntry | undefined>(entry));
         }
 
         // Trigger onQueryUpdated hooks
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
         this.plugins.forEach(p => p.onQueryUpdated?.(normalizedKey, data));
     }
+
+    // ... (deduplication cache and plugins unchanged)
 
     // --- DEDUPLICATION ---
     private deduplicationCache = new Map<string, Promise<any>>();
@@ -148,22 +214,53 @@ export class QueryCache {
 
     /**
      * Fetch data with deduplication.
-     * If a request for the same key is already in flight, returns the existing promise.
      */
-    fetch = async <T>(queryKey: QueryKeyInput, fn: () => Promise<T>): Promise<T> => {
+    /**
+     * Fetch data with deduplication.
+     */
+    fetch = async <T>(
+        queryKey: QueryKeyInput,
+        fn: (context: { signal?: AbortSignal }) => Promise<T>,
+        options?: {
+            fetchDirection?: FetchDirection;
+            signal?: AbortSignal;
+        }
+    ): Promise<T> => {
         const key = this.generateKey(queryKey);
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
+        const direction = options?.fetchDirection || 'initial';
 
         // Return existing promise if in flight
+        // We should arguably cancel the EXISTING promise if a NEW signal comes in?
+        // Or just let the existing one finish?
+        // TanStack Query behavior: deduplicates. If new observer mounts, it attaches to existing promise.
+        // If ALL observers unmount, we cancel.
+        // For now, simple dedupe.
         if (this.deduplicationCache.has(key)) {
             return this.deduplicationCache.get(key) as Promise<T>;
         }
+
+        // Update Signal State: Fetching Start
+        const signal = this.getSignal<T>(queryKey);
+        const currentEntry = signal.get();
+
+        signal.set({
+            data: currentEntry?.data, // Keep old data
+            status: currentEntry?.status || 'pending',
+            error: null, // Clear error
+            isFetching: true,
+            fetchDirection: direction,
+            timestamp: currentEntry?.timestamp || Date.now(),
+            staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
+            cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
+            key: currentEntry?.key || (Array.isArray(queryKey) ? queryKey : [queryKey])
+        } as CacheEntry<T>); // Cast to strict T
 
         // Trigger onFetchStart hooks
         this.plugins.forEach(p => p.onFetchStart?.(normalizedKey));
 
         // Create new promise
-        const promise = fn().then(
+        const promise = fn({ signal: options?.signal }).then(
             (data) => {
                 this.deduplicationCache.delete(key);
                 // Trigger onFetchSuccess hooks
@@ -172,6 +269,19 @@ export class QueryCache {
             },
             (error) => {
                 this.deduplicationCache.delete(key);
+
+                // Update Signal State: Fetch Error
+                const current = signal.get();
+                if (current) {
+                    signal.set({
+                        ...current,
+                        status: 'error',
+                        error: error,
+                        isFetching: false,
+                        fetchDirection: 'idle'
+                    });
+                }
+
                 // Trigger onFetchError hooks
                 this.plugins.forEach(p => p.onFetchError?.(normalizedKey, error));
                 throw error;
@@ -179,6 +289,11 @@ export class QueryCache {
         );
 
         this.deduplicationCache.set(key, promise);
+
+        // Handle external signal aborting (optional optimization to remove from cache?)
+        // If options.signal is aborted, we might not be able to "abort" the promise if it's shared.
+        // But we are passing it to `fn`.
+
         return promise;
     }
 
@@ -205,7 +320,7 @@ export class QueryCache {
      */
     invalidate = (queryKey: QueryKeyInput): void => {
         const prefix = this.generateKey(queryKey);
-        const normalizedKey = Array.isArray(queryKey) ? queryKey : [queryKey.key, queryKey.params];
+        const normalizedKey = Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
 
         // Trigger onInvalidate hooks
         this.plugins.forEach(p => p.onInvalidate?.(normalizedKey));
@@ -225,6 +340,27 @@ export class QueryCache {
         for (const key of this.signals.keys()) {
             if (key.startsWith(prefix.slice(0, -1))) {
                 invalidateKey(key);
+            }
+        }
+    }
+
+    /**
+     * Invalidate queries matching specific tags.
+     */
+    invalidateTags = (tags: string[]): void => {
+        const tagsToInvalidate = new Set(tags);
+
+        // Trigger onInvalidateTags logic (if we had plugins for it)
+
+        for (const [key, signal] of this.signals.entries()) {
+            const entry = signal.get();
+            if (entry && entry.tags) {
+                // Check if any intersection
+                const hasMatch = entry.tags.some(tag => tagsToInvalidate.has(tag));
+                if (hasMatch) {
+                    // Soft invalidation
+                    signal.set(undefined);
+                }
             }
         }
     }
@@ -249,33 +385,14 @@ export class QueryCache {
     }
 
     /**
-     * Garbage collection - remove expired entries
-     */
-    private startGarbageCollection = (): void => {
-        this.gcInterval = setInterval(() => {
-            const now = Date.now();
-
-            for (const [key, signal] of this.signals.entries()) {
-                const entry = signal.get();
-                if (!entry) continue;
-
-                const age = now - entry.timestamp;
-                if (age > entry.cacheTime) {
-                    this.signals.delete(key);
-                }
-            }
-        }, 60 * 1000); // Run every minute
-    }
-
-    /**
-     * Stop garbage collection
+     * Stop garbage collection (cleaning up pending timers)
      */
     destroy = (): void => {
-        if (this.gcInterval) {
-            clearInterval(this.gcInterval);
-            this.gcInterval = null;
+        for (const timer of this.gcTimers.values()) {
+            clearTimeout(timer);
         }
-        this.clear();
+        this.gcTimers.clear();
+        this.signals.clear();
     }
 
     /**
@@ -299,7 +416,14 @@ export class QueryCache {
         }
         return map;
     }
+
+    /**
+     * Get all active query signals (for Dehydration).
+     */
+    snapshot = (): Map<string, Signal<CacheEntry<any> | undefined>> => {
+        return this.signals;
+    }
 }
 
-// Global singleton instance
-export const queryCache = new QueryCache();
+// Global singleton removed to enforce Clean Architecture
+// export const queryCache = new QueryCache();

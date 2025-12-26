@@ -1,5 +1,5 @@
 import React, { createContext, useContext, type ReactNode } from 'react';
-import { QueryCache, queryCache as defaultCache } from './queryCache';
+import { QueryCache } from './queryCache';
 
 // Re-export QueryCache as QueryClient for conceptual clarity if needed, 
 // or just use QueryCache instance as the client.
@@ -23,6 +23,8 @@ export const QueryClientProvider = ({
 
 export const useQueryClient = (): QueryClient => {
     const client = useContext(QueryClientContext);
-    // Fallback to global singleton for Zero-Config usage
-    return client || defaultCache;
+    if (!client) {
+        throw new Error('No QueryClient set, use QueryClientProvider to set one');
+    }
+    return client;
 };

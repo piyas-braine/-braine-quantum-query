@@ -22,3 +22,8 @@ export interface QueryPlugin {
     onInvalidate?: (queryKey: any[]) => void;
     onQueryUpdated?: (queryKey: any[], data: any) => void;
 }
+
+export interface InfiniteData<T> {
+    pages: T[];
+    pageParams: unknown[];
+}

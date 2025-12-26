@@ -3,6 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '../src/addon/query/useQuery';
 import { z } from 'zod';
 import React from 'react';
+import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryClientProvider } from '../src/addon/query/context';
 
 // Define a schema
 const UserSchema = z.object({
@@ -12,6 +14,11 @@ const UserSchema = z.object({
 });
 
 describe('useQuery Schema Validation', () => {
+    const client = new QueryCache();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
     it('should validate correct data successfully', async () => {
         const validData = { id: 1, name: 'Alice', email: 'alice@example.com' };
 
@@ -20,7 +27,7 @@ describe('useQuery Schema Validation', () => {
             queryFn: async () => validData,
             schema: UserSchema,
             staleTime: 0
-        }));
+        }), { wrapper });
 
         await waitFor(() => expect(result.current.data).toEqual(validData));
         expect(result.current.isError).toBe(false);
@@ -34,7 +41,7 @@ describe('useQuery Schema Validation', () => {
             queryFn: async () => invalidData,
             schema: UserSchema,
             staleTime: 0
-        }));
+        }), { wrapper });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
 
@@ -48,7 +55,7 @@ describe('useQuery Schema Validation', () => {
             queryKey: ['user', 3],
             queryFn: async () => ({ id: 1, name: 'Bob', email: 'bob@example.com' }),
             schema: UserSchema
-        }));
+        }), { wrapper });
 
         // result.current.data should be typed as { id: number; name: string; email: string; } | undefined
         // We can't easily assert types in runtime tests, but if the code compiles, the inference is working enough to allow usage.

@@ -1,11 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePaginatedQuery } from '../src/addon/query/pagination';
-import { queryCache } from '../src/addon/query/queryCache';
+import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryClientProvider } from '../src/addon/query/context';
+import React from 'react';
 
 describe('usePaginatedQuery', () => {
+    let client: QueryCache;
+    let wrapper: React.FC<{ children: React.ReactNode }>;
+
     beforeEach(() => {
-        queryCache.clear();
+        client = new QueryCache();
+        wrapper = ({ children }) => (
+            <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        );
         vi.clearAllMocks();
     });
 
@@ -17,7 +25,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 pageSize: 20
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -37,7 +46,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 pageSize: 2
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -59,7 +69,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 staleTime: 60000
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -83,7 +94,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 pageSize: 20
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.hasNext).toBe(true));
@@ -102,7 +114,8 @@ describe('usePaginatedQuery', () => {
             usePaginatedQuery({
                 queryKey: ['items'],
                 queryFn: mockFn
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isError).toBe(true));
@@ -118,7 +131,8 @@ describe('usePaginatedQuery', () => {
             usePaginatedQuery({
                 queryKey: ['items'],
                 queryFn: mockFn
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.data).toEqual([{ id: 1 }]));
@@ -139,7 +153,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 enabled: false
-            })
+            }),
+            { wrapper }
         );
 
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -156,7 +171,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 pageSize: 1
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -180,7 +196,8 @@ describe('usePaginatedQuery', () => {
                 queryKey: ['items'],
                 queryFn: mockFn,
                 pageSize: 1
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.hasPrevious).toBe(false));

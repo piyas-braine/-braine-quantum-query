@@ -1,11 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useInfiniteQuery } from '../src/addon/query/infiniteQuery';
-import { queryCache } from '../src/addon/query/queryCache';
+import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryClientProvider } from '../src/addon/query/context';
+import React from 'react';
 
 describe('useInfiniteQuery', () => {
+    let client: QueryCache;
+    let wrapper: React.FC<{ children: React.ReactNode }>;
+
     beforeEach(() => {
-        queryCache.clear();
+        client = new QueryCache();
+        wrapper = ({ children }) => (
+            <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        );
         vi.clearAllMocks();
     });
 
@@ -23,7 +31,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.nextCursor,
                 initialPageParam: null
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -48,7 +57,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.nextCursor,
                 initialPageParam: null
-            })
+            }),
+            { wrapper }
         );
 
         // Wait for initial load to complete
@@ -76,7 +86,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.nextCursor,
                 initialPageParam: null
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -100,7 +111,8 @@ describe('useInfiniteQuery', () => {
                 getNextPageParam: () => undefined,
                 initialPageParam: null,
                 staleTime: 60000
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -124,7 +136,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: () => undefined,
                 initialPageParam: null
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isError).toBe(true));
@@ -151,7 +164,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.nextCursor,
                 initialPageParam: null
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.data?.pages).toHaveLength(1));
@@ -185,7 +199,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.next,
                 initialPageParam: 'p1'
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => {
@@ -214,7 +229,8 @@ describe('useInfiniteQuery', () => {
                 queryFn: mockFn,
                 getNextPageParam: (last) => last.next,
                 initialPageParam: 1
-            })
+            }),
+            { wrapper }
         );
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -247,7 +263,8 @@ describe('useInfiniteQuery', () => {
                 getNextPageParam: () => undefined,
                 initialPageParam: null,
                 enabled: false
-            })
+            }),
+            { wrapper }
         );
 
         await new Promise(resolve => setTimeout(resolve, 100));
