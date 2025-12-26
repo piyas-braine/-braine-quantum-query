@@ -2,6 +2,11 @@ import { type QueryPlugin } from './types';
 
 export class PluginManager {
     private plugins: QueryPlugin[] = [];
+    private client: any;
+
+    setClient(client: any) {
+        this.client = client;
+    }
 
     add(plugin: QueryPlugin) {
         this.plugins.push(plugin);

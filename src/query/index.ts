@@ -18,3 +18,5 @@ export type { QueryPlugin } from './types';
 export type { Signal } from '../signals';
 export * from './useSuspenseQuery';
 export { useQueryStore } from './useQueryStore';
+export { useQuery$ } from './useQuerySignal';
+

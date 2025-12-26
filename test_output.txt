@@ -1,0 +1,128 @@
+
+> @braine/quantum-query@1.2.6 test
+> vitest run tests/infiniteQuery.test.tsx
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/piyastalukder/Desktop/antigravity/statemanagement[39m
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch initial page
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch initial page
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch next page
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch next page
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch next page
+[22m[39m[InfiniteObserver] fetchNextPage called { hasNextPage: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould fetch next page
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould detect end of data
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould detect end of data
+[22m[39m[InfiniteObserver] fetchNextPage called { hasNextPage: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould cache pages
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould handle errors
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstderr[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould handle errors
+[22m[39mInitial fetch failed Error: Failed
+    at [90m/Users/piyastalukder/Desktop/antigravity/statemanagement/[39mtests/infiniteQuery.test.tsx:131:50
+    at [90mfile:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:145:11
+    at [90mfile:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:915:26
+    at [90mfile:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1209:10[90m)[39m
+    at [90mfile:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1653:37
+    at Traces.$ [90m(file:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27[90m)[39m
+    at trace [90m(file:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4mvitest[24m/dist/chunks/test.B8ej_ZHS.js:239:21[90m)[39m
+    at runTest [90m(file:///Users/piyastalukder/Desktop/antigravity/statemanagement/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1653:12[90m)[39m
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould refetch all pages
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould refetch all pages
+[22m[39m[InfiniteObserver] fetchNextPage called { hasNextPage: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould refetch all pages
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould track pageParams correctly
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould track pageParams correctly
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould track pageParams correctly
+[22m[39m[InfiniteObserver] fetchNextPage called { hasNextPage: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould show isFetchingNextPage state
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [90mundefined[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould show isFetchingNextPage state
+[22m[39m[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+[InfiniteObserver] Triggering fetchInitial { isStale: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+[90mstdout[2m | tests/infiniteQuery.test.tsx[2m > [22m[2museInfiniteQuery[2m > [22m[2mshould show isFetchingNextPage state
+[22m[39m[InfiniteObserver] fetchNextPage called { hasNextPage: [33mtrue[39m, isFetching: [33mfalse[39m }
+
+ [31m❯[39m tests/infiniteQuery.test.tsx [2m([22m[2m9 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 3811[2mms[22m[39m
+     [32m✓[39m should fetch initial page[32m 64[2mms[22m[39m
+[31m     [31m×[31m should fetch next page[39m[33m 3061[2mms[22m[39m
+     [32m✓[39m should detect end of data[32m 55[2mms[22m[39m
+     [32m✓[39m should cache pages[32m 105[2mms[22m[39m
+     [32m✓[39m should handle errors[32m 54[2mms[22m[39m
+     [32m✓[39m should refetch all pages[32m 58[2mms[22m[39m
+     [32m✓[39m should track pageParams correctly[32m 55[2mms[22m[39m
+     [32m✓[39m should show isFetchingNextPage state[32m 257[2mms[22m[39m
+     [32m✓[39m should respect enabled flag[32m 102[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/infiniteQuery.test.tsx[2m > [22museInfiniteQuery[2m > [22mshould fetch next page
+[31m[1mAssertionError[22m: expected [ { items: [ { id: 1 } ], …(1) } ] to have a length of 2 but got 1
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div />[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m timeout tests/infiniteQuery.test.tsx:[2m72:64[22m[39m
+    [90m 70| [39m        })[33m;[39m
+    [90m 71| [39m
+    [90m 72| [39m        await waitFor(() => expect(result.current.data?.pages).toHaveL…
+    [90m   | [39m                                                               [31m^[39m
+    [90m 73| [39m        expect((result.current.data?.pages[1] as any).items).toEqual([…
+    [90m 74| [39m    })[33m;[39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 04:01:07
+[2m   Duration [22m 4.21s[2m (transform 78ms, setup 47ms, import 129ms, tests 3.81s, environment 140ms)[22m
+

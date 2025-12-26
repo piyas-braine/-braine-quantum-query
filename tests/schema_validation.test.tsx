@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '../src/query/useQuery';
 import { z } from 'zod';
@@ -14,10 +14,15 @@ const UserSchema = z.object({
 });
 
 describe('useQuery Schema Validation', () => {
-    const client = new QueryClient();
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
+    let client: QueryClient;
+    let wrapper: React.FC<{ children: React.ReactNode }>;
+
+    beforeEach(() => {
+        client = new QueryClient();
+        wrapper = ({ children }: { children: React.ReactNode }) => (
+            <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        );
+    });
 
     it('should validate correct data successfully', async () => {
         const validData = { id: 1, name: 'Alice', email: 'alice@example.com' };
@@ -26,7 +31,8 @@ describe('useQuery Schema Validation', () => {
             queryKey: ['user', 1],
             queryFn: async () => validData,
             schema: UserSchema,
-            staleTime: 0
+            staleTime: 0,
+            retry: false
         }), { wrapper });
 
         await waitFor(() => expect(result.current.data).toEqual(validData));
@@ -40,7 +46,8 @@ describe('useQuery Schema Validation', () => {
             queryKey: ['user', 2],
             queryFn: async () => invalidData,
             schema: UserSchema,
-            staleTime: 0
+            staleTime: 0,
+            retry: false
         }), { wrapper });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
@@ -54,7 +61,8 @@ describe('useQuery Schema Validation', () => {
         const { result } = renderHook(() => useQuery({
             queryKey: ['user', 3],
             queryFn: async () => ({ id: 1, name: 'Bob', email: 'bob@example.com' }),
-            schema: UserSchema
+            schema: UserSchema,
+            retry: false
         }), { wrapper });
 
         // Wait for fetch to complete to avoid "act" warnings about updates after test finishes

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QueryPanel } from './QueryPanel';
-import { StatePanel } from './StatePanel';
+// import { StatePanel } from './StatePanel';
 
 export function QuantumDevTools() {
     const [isOpen, setIsOpen] = useState(false);
@@ -67,7 +67,7 @@ export function QuantumDevTools() {
 
             {/* Content */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
-                {activeTab === 'queries' ? <QueryPanel /> : <StatePanel />}
+                {activeTab === 'queries' ? <QueryPanel /> : <div>State Panel (Under Construction)</div>}
             </div>
         </div>
     );

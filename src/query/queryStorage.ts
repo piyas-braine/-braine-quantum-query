@@ -26,28 +26,30 @@ export interface CacheEntry<T = unknown> {
 }
 
 export class QueryStorage {
-    private signals = new Map<string, Signal<CacheEntry | undefined>>();
+    private signals = new Map<string, Signal<CacheEntry<unknown> | undefined>>();
     private gcTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private lruOrder = new Set<string>(); // Tracks access order (least to most recent)
 
     // Default configuration
     constructor(
         private defaultStaleTime: number = 0,
-        private defaultCacheTime: number = 5 * 60 * 1000
+        private defaultCacheTime: number = 5 * 60 * 1000,
+        private maxSize: number = 100 // Default limit to prevent memory overflow
     ) { }
 
     generateKey(queryKey: QueryKeyInput): string {
         const key = Array.isArray(queryKey) ? stableHash(queryKey) : stableHash([(queryKey as QueryKey).key, (queryKey as QueryKey).params]);
-        // console.log(`[Storage] Hash: ${JSON.stringify(queryKey)} -> ${key}`);
         return key;
     }
 
     get<T>(key: string, autoCreate = true): Signal<CacheEntry<T> | undefined> | undefined {
         let signal = this.signals.get(key);
 
-        // console.log(`[Storage] GET ${key} found=${!!signal} autoCreate=${autoCreate}`);
+        if (signal) {
+            this.touch(key);
+        }
 
         if (!signal && autoCreate) {
-            // console.log(`[Storage] RE-CREATING ${key}`);
             const newSignal = createSignal<CacheEntry<unknown> | undefined>(undefined, {
                 onActive: () => {
                     this.cancelGC(key);
@@ -60,18 +62,24 @@ export class QueryStorage {
             });
 
             this.signals.set(key, newSignal);
+            this.touch(key);
+
+            // If created but not watched, schedule initial GC
+            if (!newSignal.isWatched()) {
+                this.scheduleGC(key, this.defaultCacheTime);
+            }
+
+            this.enforceMaxSize();
             signal = newSignal;
         }
 
-        if (!signal) return undefined;
-
-        return signal as unknown as Signal<CacheEntry<T> | undefined>;
+        return signal as Signal<CacheEntry<T> | undefined> | undefined;
     }
 
     private tagIndex = new Map<string, Set<string>>();
 
-    set(key: string, entry: CacheEntry): void {
-        // console.log(`[Storage] SET ${key}`);
+    set<T>(key: string, entry: CacheEntry<T>): void {
+        this.touch(key);
 
         // Update Tag Index
         const oldEntry = this.signals.get(key)?.get();
@@ -94,11 +102,11 @@ export class QueryStorage {
             }
         }
 
-        const signal = this.signals.get(key);
+        let signal = this.signals.get(key);
         if (signal) {
             signal.set(entry);
         } else {
-            this.signals.set(key, createSignal<CacheEntry | undefined>(entry, {
+            const newSignal = createSignal<CacheEntry<unknown> | undefined>(entry, {
                 onActive: () => {
                     this.cancelGC(key);
                 },
@@ -107,14 +115,19 @@ export class QueryStorage {
                     const cacheTime = entry?.cacheTime ?? this.defaultCacheTime;
                     this.scheduleGC(key, cacheTime);
                 }
-            }));
+            });
+            this.signals.set(key, newSignal);
+
+            // If created but not watched, schedule initial GC
+            if (!newSignal.isWatched()) {
+                this.scheduleGC(key, entry.cacheTime ?? this.defaultCacheTime);
+            }
+
+            this.enforceMaxSize();
         }
     }
 
     delete(key: string): void {
-        // console.log(`[Storage] DELETE ${key}`);
-
-        // Remove from Tag Index
         const entry = this.signals.get(key)?.get();
         if (entry?.tags) {
             for (const tag of entry.tags) {
@@ -127,7 +140,29 @@ export class QueryStorage {
         }
 
         this.signals.delete(key);
+        this.lruOrder.delete(key);
         this.cancelGC(key);
+    }
+
+    private touch(key: string): void {
+        this.lruOrder.delete(key);
+        this.lruOrder.add(key);
+    }
+
+    private enforceMaxSize(): void {
+        if (this.signals.size <= this.maxSize) return;
+
+        // Find the oldest inactive entry to evict
+        for (const key of this.lruOrder) {
+            const signal = this.signals.get(key);
+
+            // 10/10 Logic: Evict oldest that has no active subscribers
+            // Freshly created signals with 0 subscribers are now correctly identified via isWatched().
+            if (signal && !signal.isWatched()) {
+                this.delete(key);
+                if (this.signals.size <= this.maxSize) break;
+            }
+        }
     }
 
     getKeysByTag(tag: string): Set<string> | undefined {
@@ -137,12 +172,13 @@ export class QueryStorage {
     clear(): void {
         this.signals.clear();
         this.tagIndex.clear();
+        this.lruOrder.clear();
         this.gcTimers.forEach(timer => clearTimeout(timer));
         this.gcTimers.clear();
     }
 
-    getAll(): Map<string, CacheEntry> {
-        const map = new Map<string, CacheEntry>();
+    getAll(): Map<string, CacheEntry<unknown>> {
+        const map = new Map<string, CacheEntry<unknown>>();
         for (const [key, signal] of this.signals.entries()) {
             const val = signal.get();
             if (val) map.set(key, val);

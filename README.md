@@ -30,46 +30,55 @@
 ## Quick Look
 
 ```tsx
-import { useQuery } from '@braine/quantum-query';
+import { useQuery, useMutation } from '@braine/quantum-query';
 
-// 1. Surgical Reads (Auto-Memoized)
-const { data } = useQuery({
+// 1. Standard Hooks (React Adapter)
+const { data, isPending } = useQuery({
     queryKey: ['user', 1],
     queryFn: fetchUser
 });
 
-// 2. Declarative Mutations (Auto-Rollback)
-const { mutate } = useMutation({
-    mutationFn: updateUser,
-    optimistic: {
-        queryKey: ['user', 1],
-        update: (vars, old) => ({ ...old, name: vars.name })
-    }
-});
-```
-
-## Fine-Grained Reactivity (Signals)
-
-The killer feature of Quantum Query is **`useQuerySignal`**. Unlike standard hooks that re-render your component on every data change, `useQuerySignal` returns a stable reactive object.
-
-```tsx
-import { useQuerySignal } from '@braine/quantum-query';
+// 2. The Quantum Way (Zero-Render)
+import { useQuery$, SignalValue } from '@braine/quantum-query';
 
 function StockTicker({ symbol }) {
   // This component will NEVER re-render when price changes!
-  const signal = useQuerySignal({
+  const query$ = useQuery$({
     queryKey: ['stock', symbol],
     queryFn: fetchStockPrice,
-    refetchInterval: 1000
+    refetchInterval: 100
   });
 
   return (
     <div>
       <h3>{symbol}</h3>
       {/* The text node updates directly via Signal binding */}
-      <p>Price: ${signal.value?.data?.price}</p>
+      <SignalValue signal={query$}>
+        {res => <p>Price: ${res.data?.price}</p>}
+      </SignalValue>
     </div>
   );
+}
+```
+
+## Unified Client State (Atoms)
+
+Forget Redux/Zustand. Use the same primitive for client state.
+
+```tsx
+import { atom, SignalValue } from '@braine/quantum-query';
+
+// Auto-persisted to detailed localStorage
+const theme$ = atom('dark', { key: 'app-theme' }); 
+
+function ThemeToggle() {
+    return (
+        <div>
+            Current: <SignalValue signal={theme$} />
+            <button onClick={() => theme$.set('light')}>Light</button>
+            <button onClick={() => theme$.set('dark')}>Dark</button>
+        </div>
+    );
 }
 ```
 

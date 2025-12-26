@@ -1,16 +1,23 @@
 /**
- * Micro-Signals (Powered by @preact/signals-core)
+ * Micro-Signals (Quantum Reactive Engine)
  * 
  * Industry-standard ultra-fast fine-grained reactivity.
- * API adapted to match original interface for backward compatibility.
+ * API encapsulated to prevent abstraction leaks and ensure safety.
  */
 
-import { signal, computed as preactComputed, effect, batch } from '@preact/signals-core';
+import {
+    signal,
+    computed as preactComputed,
+    effect as preactEffect,
+    batch as preactBatch,
+    untracked as preactUntracked
+} from '@preact/signals-core';
 
 export interface Signal<T> {
     get: () => T;
     set: (value: T) => void;
     subscribe: (fn: (value: T) => void) => () => void;
+    isWatched: () => boolean;
 }
 
 export interface SignalOptions {
@@ -23,10 +30,8 @@ export interface SignalOptions {
  */
 export function createSignal<T>(initialValue: T, options?: SignalOptions): Signal<T> {
     const s = signal<T>(initialValue);
-    let unsubscribeActive: (() => void) | undefined;
     let subscriberCount = 0;
 
-    // We wrap the Preact signal to support our specific subscribe/lifecycle API
     return {
         get: () => s.value,
 
@@ -35,27 +40,25 @@ export function createSignal<T>(initialValue: T, options?: SignalOptions): Signa
         },
 
         subscribe: (fn: (value: T) => void) => {
-            // Lifecycle: First subscriber
             if (subscriberCount === 0) {
                 options?.onActive?.();
             }
             subscriberCount++;
 
-            // Use 'effect' to subscribe to changes.
-            // Preact effects run immediately.
-            const dispose = effect(() => {
+            const dispose = preactEffect(() => {
                 fn(s.value);
             });
 
             return () => {
                 dispose();
                 subscriberCount--;
-                // Lifecycle: Last subscriber
                 if (subscriberCount === 0) {
                     options?.onInactive?.();
                 }
             };
-        }
+        },
+
+        isWatched: () => subscriberCount > 0
     };
 }
 
@@ -64,21 +67,45 @@ export function createSignal<T>(initialValue: T, options?: SignalOptions): Signa
  */
 export function computed<T>(fn: () => T): Signal<T> {
     const c = preactComputed(fn);
+    let subscriberCount = 0;
 
     return {
         get: () => c.value,
         set: () => {
-            throw new Error("Cannot set a computed signal directly.");
+            throw new Error("[Quantum] Cannot set a computed signal directly.");
         },
         subscribe: (fn: (value: T) => void) => {
-            return effect(() => {
+            subscriberCount++;
+            const dispose = preactEffect(() => {
                 fn(c.value);
             });
-        }
+            return () => {
+                dispose();
+                subscriberCount--;
+            };
+        },
+        isWatched: () => subscriberCount > 0
     };
 }
 
 /**
- * Batch updates (re-export Preact batch)
+ * Run a side effect that automatically tracks dependencies.
+ * Safer wrapper around Preact effect.
  */
-export { batch };
+export function effect(fn: () => void | (() => void)): () => void {
+    return preactEffect(fn);
+}
+
+/**
+ * Batch multiple updates into a single re-render cycle.
+ */
+export function batch(fn: () => void): void {
+    preactBatch(fn);
+}
+
+/**
+ * Access a signal value without tracking it as a dependency.
+ */
+export function untracked<T>(fn: () => T): T {
+    return preactUntracked(fn);
+}

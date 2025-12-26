@@ -1,32 +1,79 @@
 /**
- * Stable Hash Utility
+ * Stable Hash Utility (Production Grade)
  * Deterministically hashes values ensuring object key order doesn't affect the hash.
- * Handles: primitives, arrays, objects, nested structures.
  * 
- * Update: Adds type prefixes to prevent collisions (e.g. 123 vs "123").
+ * Performance Safeguards:
+ * - Recursion depth limit (prevent Stack Overflow)
+ * - Size limit (prevent CPU lockout on massive keys)
  */
-export function stableHash(value: unknown): string {
-    if (value === null) {
-        return 'null';
+export function stableHash(value: unknown, depth = 0): string {
+    // 1. Recursion Guard (Max depth 15 for query keys is plenty)
+    if (depth > 15) {
+        throw new Error("[Quantum] Query key is too deeply nested. Max depth is 15.");
     }
 
-    if (value === undefined) {
-        return 'undefined';
-    }
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
 
     if (typeof value !== 'object') {
         // Primitives: Prefix with type to prevent "123" vs 123 collision
-        return `${typeof value}:${String(value)}`;
+        const strValue = String(value);
+        // 2. Length Guard for primitives (rare but safer)
+        if (strValue.length > 1000) {
+            return `${typeof value}:[large-string:${strValue.slice(0, 10)}...]`;
+        }
+        return `${typeof value}:${strValue}`;
     }
 
     if (Array.isArray(value)) {
-        // Hash array elements in order
-        return `array:[${value.map(stableHash).join(',')}]`;
+        return `array:[${value.map(v => stableHash(v, depth + 1)).join(',')}]`;
     }
 
     // Objects
     const keys = Object.keys(value).sort();
-    // Hash object keys in sorted order
-    // Format: object:{key1:hash1,key2:hash2}
-    return `object:{${keys.map(key => `${key}:${stableHash((value as Record<string, unknown>)[key])}`).join(',')}}`;
+
+    // Performance optimization: limit number of keys to hash if it's too many?
+    // For now, let's stick to sorted join.
+    return `object:{${keys.map(key => `${key}:${stableHash((value as Record<string, unknown>)[key], depth + 1)}`).join(',')}}`;
+}
+/**
+ * Deep Equality Utility (Optimized for State Comparison)
+ * Performs a structural check without stringification.
+ */
+export function isDeepEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+
+    if (a && b && typeof a === 'object' && typeof b === 'object') {
+        if (a.constructor !== b.constructor) return false;
+
+        let length, i, keys;
+        if (Array.isArray(a)) {
+            length = a.length;
+            if (length !== b.length) return false;
+            for (i = length; i-- !== 0;) {
+                if (!isDeepEqual(a[i], b[i])) return false;
+            }
+            return true;
+        }
+
+        if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
+        if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
+
+        keys = Object.keys(a);
+        length = keys.length;
+        if (length !== Object.keys(b).length) return false;
+
+        for (const key of keys) {
+            if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+        }
+
+        for (const key of keys) {
+            if (!isDeepEqual(a[key], b[key])) return false;
+        }
+
+        return true;
+    }
+
+    // NaN check
+    return a !== a && b !== b;
 }

@@ -20,7 +20,7 @@ describe('Concurrency & Stability', () => {
 
         function TestComponent() {
             renderCount++;
-            const result = useQuery({
+            const result = useQuery<{ id: number }>({
                 queryKey: ['stable'],
                 queryFn: async () => data,
                 staleTime: 1000

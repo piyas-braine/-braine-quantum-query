@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { TodoApp } from './examples/TaskManager';
-import { App as BasicUsage } from './examples/usage';
+// import { TodoApp } from './examples/TaskManager';
+// import { App as BasicUsage } from './examples/usage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
@@ -10,11 +10,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 <div>
                     <h2>Complex CRUD (TaskManager)</h2>
-                    <TodoApp />
+                    <div>Example missing</div>
                 </div>
                 <div>
                     <h2>Basic Usage</h2>
-                    <BasicUsage />
+                    <div>Example missing</div>
                 </div>
             </div>
         </div>

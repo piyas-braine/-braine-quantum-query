@@ -9,6 +9,9 @@ export interface Schema<T> {
 export interface QueryClientConfig {
     defaultStaleTime?: number;
     defaultCacheTime?: number;
+    defaultSchema?: Schema<unknown>;
+    enableGC?: boolean;
+    maxCacheSize?: number;
 }
 
 /**

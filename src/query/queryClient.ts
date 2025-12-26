@@ -7,7 +7,9 @@ import { QueryStorage, type QueryKeyInput, type CacheEntry, type FetchDirection,
 import { QueryRemotes } from './remotes';
 import { MutationCache } from './mutationCache';
 import { PluginManager } from './pluginManager';
+import type { QueryPlugin, Schema } from './types';
 import { type Signal } from '../signals';
+import { validateWithSchema } from './plugins/validation';
 
 export type { QueryKeyInput, CacheEntry, QueryStatus, FetchDirection, QueryKey } from './queryStorage';
 
@@ -25,13 +27,20 @@ export class QueryClient {
     // Config defaults
     private readonly defaultStaleTime: number;
     private readonly defaultCacheTime: number;
+    private readonly defaultSchema?: Schema<any>;
 
-    constructor(config?: { defaultStaleTime?: number; defaultCacheTime?: number; enableGC?: boolean }) {
+    constructor(config?: import('./types').QueryClientConfig) {
         this.defaultStaleTime = config?.defaultStaleTime ?? 0;
         this.defaultCacheTime = config?.defaultCacheTime ?? 5 * 60 * 1000;
+        this.defaultSchema = config?.defaultSchema;
 
-        this.storage = new QueryStorage(this.defaultStaleTime, this.defaultCacheTime);
+        this.storage = new QueryStorage(
+            this.defaultStaleTime,
+            this.defaultCacheTime,
+            config?.maxCacheSize
+        );
         this.remotes = new QueryRemotes();
+        this.pluginManager.setClient(this);
     }
 
     // --- FACADE API ---
@@ -47,7 +56,7 @@ export class QueryClient {
 
         const entry = signal.get();
 
-        if (!entry) return undefined;
+        if (!this.isCacheEntry<T>(entry)) return undefined;
 
         const now = Date.now();
         const age = now - entry.timestamp;
@@ -57,7 +66,7 @@ export class QueryClient {
             return undefined;
         }
 
-        return entry.data as T;
+        return entry.data;
     }
 
     /**
@@ -97,7 +106,7 @@ export class QueryClient {
             tags: options?.tags
         };
 
-        this.storage.set(key, entry as CacheEntry);
+        this.storage.set(key, entry);
 
         // Trigger Plugins
         const normalizedKey = this.normalizeKey(queryKey);
@@ -130,6 +139,8 @@ export class QueryClient {
             signal?: AbortSignal;
             retry?: number | boolean;
             retryDelay?: number | ((attemptIndex: number) => number);
+            tags?: string[];
+            schema?: Schema<T>;
         }
     ): Promise<T> => {
         const key = this.storage.generateKey(queryKey);
@@ -139,20 +150,21 @@ export class QueryClient {
         // 1. Update Signal: Fetching Start
         const signal = this.storage.get<T>(key, true)!;  // Force create
         const currentEntry = signal.get();
+        const mergedTags = options?.tags ?? currentEntry?.tags;
 
-        // Safe update of signal state without losing data
+        // 1. Update Signal: Fetching Start
         this.storage.set(key, {
             data: currentEntry?.data,
             status: currentEntry?.status || 'pending',
             error: null,
-            isFetching: true, // Mark fetching
+            isFetching: true,
             fetchDirection: direction,
             timestamp: currentEntry?.timestamp || Date.now(),
             staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
             cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
             key: queryKey,
-            tags: currentEntry?.tags
-        } as CacheEntry<T>); // Explicit cast to satisfy strictness if needed
+            tags: mergedTags
+        });
 
         this.pluginManager.onFetchStart(normalizedKey);
 
@@ -165,33 +177,44 @@ export class QueryClient {
             });
 
             this.storage.set(key, {
-                ...currentEntry!,
                 data,
                 status: 'success',
+                error: null,
                 isFetching: false,
                 isInvalidated: undefined, // Clear invalidation on success
                 fetchDirection: 'idle',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
+                cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
+                key: queryKey,
+                tags: mergedTags
             });
 
-            this.pluginManager.onFetchSuccess(normalizedKey, data);
-            return data;
+            // 3. Optional Schema Validation
+            const schema = options?.schema || this.defaultSchema;
+            const validatedData = validateWithSchema(data, schema as Schema<T>);
+
+            this.pluginManager.onFetchSuccess(normalizedKey, validatedData);
+            return validatedData;
 
         } catch (error) {
             // 3. Handle Error
-            const current = signal.get();
-            if (current) {
-                this.storage.set(key, {
-                    ...current,
-                    status: 'error',
-                    error: error as Error,
-                    isFetching: false,
-                    fetchDirection: 'idle'
-                });
-            }
+            const err = error instanceof Error ? error : new Error(String(error));
+            this.storage.set(key, {
+                data: currentEntry?.data,
+                status: 'error',
+                error: err,
+                isFetching: false,
+                fetchDirection: 'idle',
+                timestamp: currentEntry?.timestamp || Date.now(),
+                staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
+                cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
+                key: queryKey,
+                tags: mergedTags
+            });
 
-            this.pluginManager.onFetchError(normalizedKey, error as Error);
-            throw error;
+            this.pluginManager.onFetchError(normalizedKey, err);
+            throw err;
         }
     }
 
@@ -296,5 +319,19 @@ export class QueryClient {
 
     private normalizeKey(queryKey: QueryKeyInput): unknown[] {
         return Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
+    }
+
+    private isCacheEntry<T>(entry: unknown): entry is CacheEntry<T> {
+        return entry !== null && typeof entry === 'object' && 'status' in entry && 'timestamp' in entry;
+    }
+
+    // --- DEBUGGER API (For DevTools) ---
+
+    debugSet = <T>(key: QueryKeyInput, data: T): void => {
+        this.set(key, data);
+    }
+
+    debugInvalidate = (key: QueryKeyInput): void => {
+        this.invalidate(key);
     }
 }

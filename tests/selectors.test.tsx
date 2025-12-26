@@ -19,7 +19,7 @@ describe('useQuery Selectors', () => {
 
     it('should select data', async () => {
         const { result } = renderHook(() =>
-            useQuery({
+            useQuery<{ id: number; name: string }[], string[]>({
                 queryKey: ['users'],
                 queryFn: async () => [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }],
                 select: (data) => data.map(u => u.name)
@@ -36,7 +36,7 @@ describe('useQuery Selectors', () => {
         const selectSpy = vi.fn((data: any[]) => data.map(u => u.name));
 
         const { result, rerender } = renderHook(() =>
-            useQuery({
+            useQuery<any[], string[]>({
                 queryKey: ['users_memo'],
                 queryFn: async () => [{ id: 1, name: 'Alice' }],
                 select: selectSpy
