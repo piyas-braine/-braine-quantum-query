@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
-import { QueryCache, QueryClientProvider, useQuery } from '../src';
+import { QueryClient, QueryClientProvider, useQuery } from '../src';
 
 // Helper to wait
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -12,7 +12,7 @@ describe('Concurrency & Stability', () => {
     });
 
     it('should maintain stable result references during re-renders', async () => {
-        const client = new QueryCache();
+        const client = new QueryClient();
         const data = { id: 1 };
 
         let renderCount = 0;
@@ -59,7 +59,7 @@ describe('Concurrency & Stability', () => {
     });
 
     it('should unsubscribe and cleanup when unmounted', async () => {
-        const client = new QueryCache({ defaultCacheTime: 50 }); // Fast GC
+        const client = new QueryClient({ defaultCacheTime: 50 }); // Fast GC
         const key = ['gc-test'];
 
         // Pre-populate
@@ -89,7 +89,7 @@ describe('Concurrency & Stability', () => {
     });
 
     it('should handle rapid mounting/unmounting without race conditions', async () => {
-        const client = new QueryCache();
+        const client = new QueryClient();
         const key = ['rapid'];
         let fetchCount = 0;
 

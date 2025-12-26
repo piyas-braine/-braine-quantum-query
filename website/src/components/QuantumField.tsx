@@ -65,6 +65,7 @@ const QuantumField = () => {
                 // Connections: Only when very close (Constellations)
                 for (let j = i + 1; j < particles.length; j++) {
                     const p2 = particles[j];
+                    if (!p2) continue;
                     const dx = p.x - p2.x;
                     const dy = p.y - p2.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);

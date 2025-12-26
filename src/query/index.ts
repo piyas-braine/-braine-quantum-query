@@ -2,8 +2,8 @@
  * Query Hooks & Cache Exports
  */
 
-export { QueryCache } from './queryCache';
-export type { CacheEntry, QueryKey, QueryKeyInput, QueryStatus } from './queryCache';
+export { QueryClient } from './queryClient';
+export type { CacheEntry, QueryKey, QueryKeyInput, QueryStatus } from './queryClient';
 
 export { usePaginatedQuery } from './pagination';
 export type { UsePaginatedQueryOptions, PaginatedQueryResult } from './pagination';
@@ -17,3 +17,4 @@ export { dehydrate, hydrate } from './hydration';
 export type { QueryPlugin } from './types';
 export type { Signal } from '../signals';
 export * from './useSuspenseQuery';
+export { useQueryStore } from './useQueryStore';

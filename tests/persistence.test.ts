@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import { createLocalStoragePersister } from '../src/plugins/persist/createLocalStoragePersister';
 import { persistQueryClient } from '../src/plugins/persist/persistQueryClient';
 
 describe('Persistence Adapter', () => {
-    let client: QueryCache;
+    let client: QueryClient;
     let storage: Record<string, string> = {};
     let mockStorage: Storage;
 
     beforeEach(() => {
-        client = new QueryCache({ enableGC: false });
+        client = new QueryClient({ enableGC: false });
         storage = {};
         mockStorage = {
             getItem: vi.fn((key) => storage[key] || null),

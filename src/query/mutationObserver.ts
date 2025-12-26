@@ -1,7 +1,7 @@
 import { type MutationCache, type MutationState } from './mutationCache';
 import { type UseMutationOptions } from './useMutation';
 import { type Signal, createSignal } from '../signals';
-import { type QueryCache } from './queryCache'; // Type import
+import { type QueryClient } from './queryClient'; // Type import
 
 // Polyfill for randomUUID if needed (or just use a better random generator)
 const generateId = () => {
@@ -12,7 +12,7 @@ const generateId = () => {
 };
 
 export class MutationObserver<TData, TVariables, TContext> {
-    private client: QueryCache;
+    private client: QueryClient;
     private options: UseMutationOptions<TData, TVariables, TContext>;
     private currentMutationId: string | null = null;
 
@@ -20,7 +20,7 @@ export class MutationObserver<TData, TVariables, TContext> {
     // This ensures we don't miss updates if we switch IDs.
     public signal: Signal<MutationState<TData, TVariables, TContext>>;
 
-    constructor(client: QueryCache, options: UseMutationOptions<TData, TVariables, TContext>) {
+    constructor(client: QueryClient, options: UseMutationOptions<TData, TVariables, TContext>) {
         this.client = client;
         this.options = options;
 

@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useSyncExternalStore, useRef } from 'react';
 import { useQueryClient } from './context';
 import { type Schema } from './types';
-import { type QueryKeyInput, type CacheEntry } from './queryCache';
+import { type QueryKeyInput, type CacheEntry } from './queryClient';
 import { type Signal } from '../signals';
 import { QueryObserver, type QueryObserverResult, type QueryObserverOptions } from './queryObserver';
 import { stableHash } from './utils';
@@ -113,8 +113,8 @@ export function useQuery<T, TData = T, TError = Error>(
 
         // Update memoRef with the new entry and its processed result
         memoRef.current = { entry, selected: processedResult };
-        // Cast to unknown first because TData might not match T
-        return processedResult as unknown as QueryObserverResult<TData>;
+        // Type safe return
+        return processedResult as QueryObserverResult<TData>;
     }, [observer]);
 
     const result = useSyncExternalStore(subscribe, getSnapshotWithSelector);

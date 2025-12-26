@@ -29,7 +29,7 @@ const todoModel = defineModel({
 const FEATURE_LIST = [
   {
     title: 'Atomic Signals',
-    description: 'Updates traverse the component tree in O(1) time. No selectors, no memozation, no waste.',
+    description: 'Updates jump directly to components in O(1) time. No selectors, no memozation, no waste.',
   },
   {
     title: 'Zero Boilerplate',

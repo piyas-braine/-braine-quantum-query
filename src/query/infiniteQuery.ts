@@ -4,7 +4,7 @@
  * 
  * Refactored to "Senior Standards":
  * - No local state (useReducer removed)
- * - All state derived from Global QueryCache Signal
+ * - All state derived from Global QueryClient Signal
  * - Manual signal updates for aggregate key to track fetching state of pages
  */
 

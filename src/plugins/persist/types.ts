@@ -1,4 +1,4 @@
-import { QueryCache } from '../query/queryCache';
+import { QueryClient } from '../../query/queryClient';
 
 export interface DehydratedQuery {
     queryKey: unknown[];
@@ -25,7 +25,7 @@ export interface Persister {
 }
 
 export interface PersistQueryClientOptions {
-    queryClient: QueryCache;
+    queryClient: QueryClient;
     persister: Persister;
     maxAge?: number; // 24 hours default
     buster?: string;

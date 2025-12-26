@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '../src/query/useQuery';
-import { QueryClientProvider, type QueryClient } from '../src/query/context';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClientProvider } from '../src/query/context';
+import { QueryClient } from '../src/query/queryClient';
 import React from 'react';
 
 describe('QueryClientProvider Isolation', () => {
     it('should isolate cache between providers', async () => {
         // Create two separate clients
         // Create two separate clients with GC disabled (prevents open handles)
-        const clientA = new QueryCache({ enableGC: false });
-        const clientB = new QueryCache({ enableGC: false });
+        const clientA = new QueryClient({ enableGC: false });
+        const clientB = new QueryClient({ enableGC: false });
 
         // Wrapper for Client A
         const wrapperA = ({ children }: { children: React.ReactNode }) => (

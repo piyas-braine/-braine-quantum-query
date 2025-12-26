@@ -1,4 +1,4 @@
-import { QueryCache, type CacheEntry, type QueryKeyInput } from './queryCache';
+import { QueryClient, type CacheEntry, type QueryKeyInput } from './queryClient';
 import { stableHash } from './utils';
 
 export interface DehydratedState {
@@ -12,7 +12,7 @@ export interface DehydratedState {
 /**
  * Serialize the query cache for transport.
  */
-export function dehydrate(client: QueryCache): DehydratedState {
+export function dehydrate(client: QueryClient): DehydratedState {
     const queries: DehydratedState['queries'] = [];
     const snapshot = client.getSnapshot();
 
@@ -33,7 +33,7 @@ export function dehydrate(client: QueryCache): DehydratedState {
 /**
  * Hydrate the query cache from serialized state.
  */
-export function hydrate(client: QueryCache, state: DehydratedState) {
+export function hydrate(client: QueryClient, state: DehydratedState) {
     if (!state || !state.queries) return;
 
     state.queries.forEach(({ queryKey, state: queryState }) => {
@@ -51,12 +51,12 @@ export function hydrate(client: QueryCache, state: DehydratedState) {
         // Since we are inside the library, we can't access private members of client easily if strictly typed...
         // But here we are in the same package (mostly).
 
-        // Actually best way: add `restore` to QueryCache.
+        // Actually best way: add `restore` to QueryClient.
         // For now, let's use `set` and assume we are mostly restoring successful data.
         // If we want perfection, we need `client.restore`.
 
         // Let's rely on `client.set` for now as MVP, but it sets defaults.
-        // To do it 10/10, we should add `restore` to QueryCache.
+        // To do it 10/10, we should add `restore` to QueryClient.
         client.restore(queryKey, queryState);
     });
 }

@@ -1,5 +1,5 @@
 import type { PersistQueryClientOptions, DehydratedState, PersistedClient, DehydratedQuery } from './types';
-import type { QueryPlugin } from '../query/types';
+import type { QueryPlugin } from '../../query/types';
 
 export async function persistQueryClient(options: PersistQueryClientOptions) {
     const { queryClient, persister, maxAge = 1000 * 60 * 60 * 24, buster = '' } = options;

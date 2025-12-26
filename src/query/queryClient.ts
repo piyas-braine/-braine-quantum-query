@@ -11,7 +11,7 @@ import { type Signal } from '../signals';
 
 export type { QueryKeyInput, CacheEntry, QueryStatus, FetchDirection, QueryKey } from './queryStorage';
 
-export class QueryCache {
+export class QueryClient {
     // Components
     private storage: QueryStorage;
     private remotes: QueryRemotes;

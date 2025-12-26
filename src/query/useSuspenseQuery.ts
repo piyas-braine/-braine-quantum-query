@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryOptions, type UseQueryResult } from './useQuery';
 import { useQueryClient } from './context';
 import { stableHash } from './utils';
-import { type CacheEntry } from './queryCache';
+import { type CacheEntry } from './queryClient';
 
 export interface UseSuspenseQueryOptions<T> extends UseQueryOptions<T> {
 }
@@ -36,7 +36,7 @@ export function useSuspenseQuery<T>(options: UseSuspenseQueryOptions<T>): Suspen
 
     if (shouldSuspend) {
         // Find existing promise in deduplication cache?
-        // QueryCache doesn't expose deduplicationCache publicly.
+        // QueryClient doesn't expose deduplicationCache publicly.
         // But `fetch` returns a promise.
         // If we call `fetch` without options, it deduplicates.
         // BUT `fetch` is async. We are in render. We can call it but we shouldn't await.
@@ -60,8 +60,7 @@ export function useSuspenseQuery<T>(options: UseSuspenseQueryOptions<T>): Suspen
         // We need the promise to UPDATE the cache when it resolves, so the next render finds data.
         // client.fetch does NOT update cache on success (useQuery does that).
         const fetchPromise = client.fetch(options.queryKey,
-            // @ts-ignore
-            (ctx) => options.queryFn(ctx),
+            (ctx) => options.queryFn({ ...ctx, signal: undefined }),
             { signal: undefined }
         ).then(data => {
             // Update Cache on success

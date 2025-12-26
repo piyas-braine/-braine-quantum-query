@@ -1,4 +1,4 @@
-import { type QueryCache, type QueryKeyInput, type CacheEntry, type QueryStatus } from './queryCache';
+import { type QueryClient, type QueryKeyInput, type CacheEntry, type QueryStatus } from './queryClient';
 import { type Schema } from './types';
 import { type Signal } from '../signals';
 import { stableHash } from './utils';
@@ -31,7 +31,7 @@ export interface QueryObserverResult<T> {
 }
 
 export class QueryObserver<T> {
-    private client: QueryCache;
+    private client: QueryClient;
     private options: QueryObserverOptions<T>;
     private queryKeyHash: string;
     private signal: Signal<CacheEntry<T> | undefined>;
@@ -45,7 +45,7 @@ export class QueryObserver<T> {
     // Derived state cache to ensure referential stability where possible
     private currentResult: QueryObserverResult<T> | undefined;
 
-    constructor(client: QueryCache, options: QueryObserverOptions<T>) {
+    constructor(client: QueryClient, options: QueryObserverOptions<T>) {
         this.client = client;
         this.options = options;
         this.queryKeyHash = stableHash(options.queryKey);
@@ -134,7 +134,7 @@ export class QueryObserver<T> {
 
 
 
-        const isStale = ((entry as any)?.isInvalidated) || isTimeStale;
+        const isStale = (entry?.isInvalidated) || isTimeStale;
         const isError = status === 'error';
         const isLoading = data === undefined;
 

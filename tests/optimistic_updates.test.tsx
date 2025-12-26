@@ -3,17 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { useMutation } from '../src/query/useMutation';
 import { useQuery } from '../src/query/useQuery';
 import { QueryClientProvider, createQueryClient } from '../src/query/context';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 
-const createWrapper = (client: QueryCache) => ({ children }: { children: React.ReactNode }) => (
+const createWrapper = (client: QueryClient) => ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
 );
 
 describe('Optimistic Updates V2', () => {
-    let client: QueryCache;
+    let client: QueryClient;
 
     beforeEach(() => {
-        client = new QueryCache();
+        client = new QueryClient();
     });
 
     it('should apply optimistic update and persist on success', async () => {

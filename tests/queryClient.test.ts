@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 
-describe('QueryCache', () => {
-    let cache: QueryCache;
+describe('QueryClient', () => {
+    let cache: QueryClient;
 
     beforeEach(() => {
-        cache = new QueryCache();
+        cache = new QueryClient();
     });
 
     afterEach(() => {

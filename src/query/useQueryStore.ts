@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from './context';
 
-export function useQueryCache() {
+export function useQueryStore() {
     const client = useQueryClient();
     const [cache, setCache] = useState(client.getAll());
 
     useEffect(() => {
         const interval = setInterval(() => {
             // Polling for changes (Simple & Robust for DevTools)
-            // In a real implementation, we would use a subscription model on the QueryCache
+            // In a real implementation, we would use a subscription model on the QueryClient
             setCache(new Map(client.getAll()));
         }, 500);
 

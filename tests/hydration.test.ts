@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import { dehydrate, hydrate } from '../src/query/hydration';
 
 describe('SSR Hydration', () => {
     it('should dehydrate and hydrate query state', () => {
-        const serverClient = new QueryCache();
+        const serverClient = new QueryClient();
         const key = ['posts', 1];
         const data = { id: 1, title: 'Hello' };
 
@@ -25,7 +25,7 @@ describe('SSR Hydration', () => {
         const dehydrated = dehydrate(serverClient);
 
         // Client side
-        const clientClient = new QueryCache();
+        const clientClient = new QueryClient();
         hydrate(clientClient, dehydrated);
 
         const clientSignal = clientClient.getSignal(key);

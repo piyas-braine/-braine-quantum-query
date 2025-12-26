@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '../src/query/useQuery';
 import { z } from 'zod';
 import React from 'react';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import { QueryClientProvider } from '../src/query/context';
 
 // Define a schema
@@ -14,7 +14,7 @@ const UserSchema = z.object({
 });
 
 describe('useQuery Schema Validation', () => {
-    const client = new QueryCache();
+    const client = new QueryClient();
     const wrapper = ({ children }: { children: React.ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );

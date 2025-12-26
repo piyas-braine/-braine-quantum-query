@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '../src/query/useQuery';
 import { QueryClientProvider } from '../src/query/context';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 
 describe('Query Cancellation', () => {
-    let client: QueryCache;
+    let client: QueryClient;
 
     beforeEach(() => {
-        client = new QueryCache();
+        client = new QueryClient();
     });
 
     it('should pass abort signal to query function', async () => {

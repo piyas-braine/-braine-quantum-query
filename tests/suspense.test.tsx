@@ -2,11 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor, screen } from '@testing-library/react';
 import React, { Suspense } from 'react';
 import { QueryClientProvider } from '../src/query/context';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import { useSuspenseQuery } from '../src/query/useSuspenseQuery';
 
 const createWrapper = () => {
-    const client = new QueryCache();
+    const client = new QueryClient();
     return {
         wrapper: ({ children }: { children: React.ReactNode }) => (
             React.createElement(QueryClientProvider, { client, children })

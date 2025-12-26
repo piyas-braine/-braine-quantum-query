@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 
 describe('DX: "this" Context Safety', () => {
     it('should allow destructuring of methods without losing context', async () => {
-        const client = new QueryCache();
+        const client = new QueryClient();
         const { fetch, set, get } = client;
 
         // 1. Test set (synchronous)
@@ -20,7 +20,7 @@ describe('DX: "this" Context Safety', () => {
     });
 
     it('should be safe to pass as callback', () => {
-        const client = new QueryCache();
+        const client = new QueryClient();
         const execute = (fn: any) => fn(['callback'], 'data');
 
         // Passing client.set directly as a callback

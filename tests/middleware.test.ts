@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import type { QueryPlugin } from '../src/query/types';
 
-describe('QueryCache Middleware', () => {
-    let client: QueryCache;
+describe('QueryClient Middleware', () => {
+    let client: QueryClient;
 
     beforeEach(() => {
-        client = new QueryCache();
+        client = new QueryClient();
     });
 
     it('should trigger onFetchStart and onFetchSuccess hooks', async () => {

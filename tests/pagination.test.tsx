@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePaginatedQuery } from '../src/query/pagination';
-import { QueryCache } from '../src/query/queryCache';
+import { QueryClient } from '../src/query/queryClient';
 import { QueryClientProvider } from '../src/query/context';
 import React from 'react';
 
 describe('usePaginatedQuery', () => {
-    let client: QueryCache;
+    let client: QueryClient;
     let wrapper: React.FC<{ children: React.ReactNode }>;
 
     beforeEach(() => {
-        client = new QueryCache();
+        client = new QueryClient();
         wrapper = ({ children }) => (
             <QueryClientProvider client={client}>{children}</QueryClientProvider>
         );
