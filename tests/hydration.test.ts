@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { dehydrate, hydrate } from '../src/addon/query/hydration';
+import { QueryCache } from '../src/query/queryCache';
+import { dehydrate, hydrate } from '../src/query/hydration';
 
 describe('SSR Hydration', () => {
     it('should dehydrate and hydrate query state', () => {

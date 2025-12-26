@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { defineModel } from '../src/core/model';
+import { defineModel } from '../src/store/model';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 

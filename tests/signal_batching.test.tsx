@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
-import { createSignal } from '../src/addon/signals';
+import { createSignal } from '../src/signals';
 
 describe('Signal Batching', () => {
     it('should batch 100 updates into 1 render', async () => {
@@ -22,7 +22,7 @@ describe('Signal Batching', () => {
         }
 
         // Wait for microtask to flush
-        await new Promise(resolve => queueMicrotask(resolve));
+        await new Promise(resolve => queueMicrotask(resolve as VoidFunction));
         await new Promise(resolve => setTimeout(resolve, 0));
 
         // Should only trigger ONE additional render
@@ -59,7 +59,7 @@ describe('Signal Batching', () => {
         signal2.set('3');
 
         // Wait for batched updates
-        await new Promise(resolve => queueMicrotask(resolve));
+        await new Promise(resolve => queueMicrotask(resolve as VoidFunction));
         await new Promise(resolve => setTimeout(resolve, 0));
 
         // Each hook should only re-render once

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useMutation } from '../src/addon/query/useMutation';
-import { useQuery } from '../src/addon/query/useQuery';
-import { QueryClientProvider, createQueryClient } from '../src/addon/query/context';
-import { QueryCache } from '../src/addon/query/queryCache';
+import { useMutation } from '../src/query/useMutation';
+import { useQuery } from '../src/query/useQuery';
+import { QueryClientProvider, createQueryClient } from '../src/query/context';
+import { QueryCache } from '../src/query/queryCache';
 
 const createWrapper = (client: QueryCache) => ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -31,7 +31,7 @@ describe('Optimistic Updates V2', () => {
             },
             optimistic: {
                 queryKey,
-                update: (newTodo, oldData: string[]) => [...oldData, newTodo]
+                update: (newTodo, oldData) => [...(oldData as string[]), newTodo]
             }
         }), { wrapper });
 
@@ -63,14 +63,14 @@ describe('Optimistic Updates V2', () => {
             },
             optimistic: {
                 queryKey,
-                update: (newTodo, oldData: string[]) => [...oldData, newTodo]
+                update: (newTodo, oldData) => [...(oldData as string[]), newTodo as unknown as string]
             }
         }), { wrapper });
 
         // 3. Trigger Mutation
         await act(async () => {
             try {
-                await result.current.mutateAsync('todo2');
+                await (result.current as any).mutateAsync('todo2');
             } catch (e) {
                 // Ignore
             }

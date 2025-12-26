@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { createLocalStoragePersister } from '../src/addon/persist/createLocalStoragePersister';
-import { persistQueryClient } from '../src/addon/persist/persistQueryClient';
+import { QueryCache } from '../src/query/queryCache';
+import { createLocalStoragePersister } from '../src/plugins/persist/createLocalStoragePersister';
+import { persistQueryClient } from '../src/plugins/persist/persistQueryClient';
 
 describe('Persistence Adapter', () => {
     let client: QueryCache;
@@ -82,7 +82,7 @@ describe('Persistence Adapter', () => {
         vi.runAllTimers();
 
         expect(mockStorage.setItem).toHaveBeenCalled();
-        const stored = JSON.parse(storage['TEST_CACHE']);
+        const stored = JSON.parse((storage as any)['TEST_CACHE']);
         expect(stored.clientState.queries).toHaveLength(1);
         expect(stored.clientState.queries[0].data).toEqual({ val: 'fresh' });
 

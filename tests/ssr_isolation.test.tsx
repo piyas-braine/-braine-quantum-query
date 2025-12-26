@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useQuery } from '../src/addon/query/useQuery';
-import { QueryClientProvider, QueryClient } from '../src/addon/query/context';
-import { QueryCache } from '../src/addon/query/queryCache';
+import { useQuery } from '../src/query/useQuery';
+import { QueryClientProvider, type QueryClient } from '../src/query/context';
+import { QueryCache } from '../src/query/queryCache';
 import React from 'react';
 
 describe('QueryClientProvider Isolation', () => {

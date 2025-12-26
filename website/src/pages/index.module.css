@@ -1,0 +1,456 @@
+/**
+ * Landing Page CSS Module - Swiss Grid / Technical
+ */
+
+/* Background */
+.gridBackground {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--qq-bg);
+}
+
+.axisX {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--qq-accent);
+  opacity: 0.1;
+}
+
+.axisY {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: var(--qq-accent);
+  opacity: 0.1;
+}
+
+/* Hero Section - Technical Spec */
+.heroBanner {
+  position: relative;
+  z-index: 10;
+  padding: 8rem 1rem 6rem;
+  /* Tightened top padding */
+  text-align: center;
+  border-bottom: 1px solid var(--qq-border);
+  background: transparent;
+}
+
+/* ... existing glow removal ... */
+
+.heroTitle {
+  font-size: 5rem;
+  /* Slightly smaller for better balance */
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.04em;
+  color: var(--qq-text);
+  background: none;
+  -webkit-text-fill-color: var(--qq-text);
+  filter: none;
+
+  /* Technical Underline - Cleaner */
+  border-bottom: 4px solid var(--qq-text);
+  display: inline-block;
+  padding-bottom: 0.5rem;
+  text-decoration: none;
+  /* Remove default underline */
+}
+
+/* ... existing subtitle ... */
+
+/* Visualizer - The Instrument */
+.visualizerContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Ensure vertical alignment */
+  flex-wrap: wrap;
+  /* Allow wrapping on small screens */
+  border-top: 1px solid var(--qq-border);
+  border-bottom: 1px solid var(--qq-border);
+  background: var(--qq-surface);
+  padding: 6rem 1rem;
+  /* Added horizontal padding to prevent edge overflow */
+  position: relative;
+  gap: 2rem;
+  /* Replace margins with gap */
+}
+
+/* Visualizer Boxes - Technical Instruments */
+.simBox,
+.simBoxQuantum {
+  padding: 2rem;
+  width: 320px;
+  max-width: 100%;
+  /* Prevent overflow on mobile */
+  text-align: left;
+  background: var(--qq-bg);
+  border: 1px solid var(--qq-border);
+  border-radius: 0;
+  box-shadow: none;
+  /* Removed margins in favor of gap */
+  margin: 0;
+  position: relative;
+  /* For corner markers */
+}
+
+/* Corner Markers for Technical Feel */
+.simBox::after,
+.simBoxQuantum::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--qq-text);
+  border-left: 2px solid var(--qq-text);
+}
+
+.simBox::before,
+.simBoxQuantum::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid var(--qq-text);
+  border-right: 2px solid var(--qq-text);
+}
+
+.simBoxQuantum {
+  border: 2px solid var(--qq-text);
+}
+
+.simLabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  user-select: none;
+  color: var(--qq-text-secondary);
+  border-bottom: 1px solid var(--qq-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.simLabel span {
+  color: var(--qq-accent);
+}
+
+.simCount {
+  font-size: 4rem;
+  font-weight: 400;
+  /* Lighter, technical */
+  color: var(--qq-text);
+  margin-bottom: 2rem;
+}
+
+.simBtn,
+.simBtnPrimary {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: var(--ifm-font-family-monospace);
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--qq-border);
+  color: var(--qq-text);
+  cursor: pointer;
+}
+
+.simBtn:hover {
+  background: var(--qq-border);
+}
+
+.simBtnPrimary {
+  background: var(--qq-accent);
+  color: var(--qq-bg);
+  border-color: var(--qq-accent);
+}
+
+.simBtnPrimary:hover {
+  opacity: 0.9;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Spec Sheet Table */
+.tableSection {
+  padding: 8rem 0;
+  border-bottom: 1px solid var(--qq-border);
+  background: var(--qq-bg);
+}
+
+/* Global Grid Container to align ALL sections */
+.gridContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0;
+  /* Ensure strict alignment */
+  box-sizing: border-box;
+}
+
+/* Global Section Title - Standardized */
+.gridSectionTitle {
+  font-family: var(--ifm-font-family-base);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--qq-text);
+  margin-bottom: 2rem;
+  text-align: left;
+  letter-spacing: -0.03em;
+  padding-left: 0;
+  border-bottom: none;
+}
+
+/* Universal Section Container - The "Box" */
+.contentSection {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: var(--qq-bg);
+  border-left: 1px solid var(--qq-border);
+  border-right: 1px solid var(--qq-border);
+  border-bottom: 1px solid var(--qq-border);
+  padding: 4rem;
+  /* Generous internal padding */
+  box-sizing: border-box;
+  position: relative;
+  z-index: 10;
+}
+
+/* Features Section - Now contained in the box */
+.features {
+  padding: 0;
+  margin-top: 5rem;
+  /* Space from Hero */
+  display: flex;
+  justify-content: center;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  border-top: 1px solid var(--qq-border);
+  /* Top border for the grid itself */
+  /* Remove other borders as they are handled by contentSection or cells */
+}
+
+/* Code Compassion - Boxed */
+.codeSection {
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  margin-top: 5rem;
+}
+
+.codeDescription {
+  font-size: 1.25rem;
+  color: var(--qq-text-secondary);
+  margin-bottom: 3rem;
+  max-width: 600px;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  /* Borders will be the gap */
+  width: 100%;
+  border: 1px solid var(--qq-border);
+}
+
+.comparisonGrid>div {
+  padding: 0;
+  /* Let code blocks fill */
+  border-right: 1px solid var(--qq-border);
+}
+
+.comparisonGrid>div:last-child {
+  border-right: none;
+}
+
+.codeLabel {
+  display: block;
+  padding: 1rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--qq-text);
+  border-bottom: 1px solid var(--qq-border);
+  background: var(--qq-surface);
+  font-weight: 700;
+}
+
+/* Override CodeBlock Styles for "Flat" look */
+.codeBoxShim pre {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  background: var(--qq-bg) !important;
+}
+
+/* Smart Model - Boxed */
+.smartModelSection {
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  margin-top: 5rem;
+}
+
+.deepDiveGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  border: 1px solid var(--qq-border);
+}
+
+.deepDiveText {
+  padding: 3rem;
+  border-right: 1px solid var(--qq-border);
+  background: var(--qq-surface);
+}
+
+.deepDiveCode {
+  background: var(--qq-bg);
+}
+
+.featureMatrixContainer {
+  /* Remove max-width here, let the gridContainer handle it */
+  width: 100%;
+  border: 1px solid var(--qq-border);
+  background: var(--qq-bg);
+  box-shadow: none;
+}
+
+.featureMatrix {
+  width: 100%;
+  border-collapse: collapse;
+  /* Critical fix */
+}
+
+.featureMatrix th,
+.featureMatrix td {
+  width: 25%;
+  /* Force 4 equal columns */
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--qq-border);
+  border-right: 1px solid var(--qq-border);
+  color: var(--qq-text-secondary);
+  font-size: 0.9rem;
+}
+
+.featureMatrix th {
+  font-family: var(--ifm-font-family-monospace);
+  background: var(--qq-surface);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--qq-text);
+  text-align: left;
+}
+
+/* Specific Header for Quantum Query */
+.featureMatrix th:nth-last-child(1) {
+  border-left: 2px solid var(--qq-text);
+  color: var(--qq-text);
+  font-weight: 800;
+}
+
+/* The common properties are now in the combined rule above */
+
+.featureMatrix td:last-child,
+.featureMatrix th:last-child {
+  border-right: none;
+}
+
+.featureMatrix tr:last-child td {
+  border-bottom: none;
+}
+
+.highlightCol {
+  background: var(--qq-bg);
+  color: var(--qq-text) !important;
+  font-weight: 800;
+  border-left: 2px solid var(--qq-text);
+  /* Technical Marker */
+}
+
+@media screen and (max-width: 996px) {
+  .heroTitle {
+    font-size: 3.5rem;
+  }
+
+  .contentSection {
+    padding: 1.5rem;
+    /* Tighter padding */
+  }
+
+  /* Force Stacking */
+  .featureGrid,
+  .comparisonGrid,
+  .deepDiveGrid {
+    display: flex;
+    /* Switch to flex column to prevent grid blowout */
+    flex-direction: column;
+    width: 100%;
+    border: none;
+  }
+
+  .comparisonGrid>div,
+  .deepDiveText {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--qq-border);
+  }
+
+  .comparisonGrid>div:last-child {
+    border-bottom: none;
+  }
+
+  /* CRITICAL: Constrain code blocks */
+  .codeBoxShim {
+    width: 100%;
+    max-width: 85vw;
+    /* Prevent screen overflow */
+    overflow-x: auto;
+    /* Force internal scrolling */
+  }
+
+  /* Ensure Pre tags don't force width */
+  .codeBoxShim pre {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .featureCard {
+    border-right: none;
+    border-bottom: 1px solid var(--qq-border);
+  }
+
+  .featureMatrixContainer {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+    /* Ensure it's a block for scrolling */
+  }
+
+  .featureMatrix {
+    min-width: 600px;
+  }
+}

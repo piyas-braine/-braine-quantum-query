@@ -1,5 +1,5 @@
 import React from 'react';
-import { defineModel } from '../core/model';
+import { defineModel } from '../store/model';
 import { useStore } from '../react/autoHook';
 
 // 1. Define Model

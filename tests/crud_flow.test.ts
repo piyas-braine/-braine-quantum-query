@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createState } from '../src/core/proxy';
-import { computed } from '../src/core/computed';
+import { createState } from '../src/store/proxy';
+import { computed } from '../src/store/computed';
 
 // Mock API
 const DB = {

@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { usePaginatedQuery } from '../addon/query';
-import { createHttpClient } from '../addon/httpClient';
+import { usePaginatedQuery } from '../query';
+import { createHttpClient } from '../httpClient';
 
 const api = createHttpClient({ baseURL: 'https://api.example.com' });
 

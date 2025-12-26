@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { QueryCache } from '../src/addon/query/queryCache';
-import type { QueryPlugin } from '../src/addon/query/types';
+import { QueryCache } from '../src/query/queryCache';
+import type { QueryPlugin } from '../src/query/types';
 
 describe('QueryCache Middleware', () => {
     let client: QueryCache;

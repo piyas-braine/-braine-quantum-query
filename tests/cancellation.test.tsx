@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useQuery } from '../src/addon/query/useQuery';
-import { QueryClientProvider } from '../src/addon/query/context';
-import { QueryCache } from '../src/addon/query/queryCache';
+import { useQuery } from '../src/query/useQuery';
+import { QueryClientProvider } from '../src/query/context';
+import { QueryCache } from '../src/query/queryCache';
 
 describe('Query Cancellation', () => {
     let client: QueryCache;

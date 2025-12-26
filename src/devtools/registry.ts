@@ -1,4 +1,4 @@
-import { type Signal, createSignal } from '../addon/signals';
+import { type Signal, createSignal } from '../signals';
 
 export interface StoreEntry {
     name: string;

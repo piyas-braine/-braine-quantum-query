@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useQueryCache } from '../addon/query/useQueryCache';
-import { useQueryClient } from '../addon/query/context';
+import { useQueryCache } from '../query/useQueryCache';
+import { useQueryClient } from '../query/context';
+import { type CacheEntry } from '../query/queryStorage';
+import { type QueryCache } from '../query/queryCache';
 
 export function QueryPanel() {
     const cache = useQueryCache();
@@ -91,7 +93,7 @@ export function QueryPanel() {
     );
 }
 
-function QueryItem({ entry, client, isStale }: { entry: any, client: any, isStale: boolean }) {
+function QueryItem({ entry, client, isStale }: { entry: CacheEntry<unknown>, client: QueryCache, isStale: boolean }) {
     const [expanded, setExpanded] = useState(false);
 
     return (

@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { useInfiniteQuery } from '../addon/query';
-import { createHttpClient } from '../addon/httpClient';
+import { useInfiniteQuery } from '../query';
+import { createHttpClient } from '../httpClient';
 
 const api = createHttpClient({ baseURL: 'https://api.example.com' });
 
@@ -46,7 +46,7 @@ export function InfiniteScrollFeed() {
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting) {
+                if (entries[0]?.isIntersecting) {
                     fetchNextPage();
                 }
             },

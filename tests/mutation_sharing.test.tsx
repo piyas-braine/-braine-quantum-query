@@ -2,15 +2,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import React from 'react';
-import { QueryClientProvider, useQueryClient } from '../src/addon/query/context';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { useMutation } from '../src/addon/query/useMutation';
+import { QueryClientProvider, useQueryClient } from '../src/query/context';
+import { QueryCache } from '../src/query/queryCache';
+import { useMutation } from '../src/query/useMutation';
 
 const createWrapper = () => {
     const client = new QueryCache();
     return {
         wrapper: ({ children }: { children: React.ReactNode }) => (
-            React.createElement(QueryClientProvider, { client }, children)
+            React.createElement(QueryClientProvider, { client, children })
         ),
         client
     };

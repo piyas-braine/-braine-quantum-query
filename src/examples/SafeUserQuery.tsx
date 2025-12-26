@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery } from '../addon/query';
+import { useQuery } from '../query';
 import { z } from 'zod';
 
 // 1. Define your schema (Single Source of Truth)

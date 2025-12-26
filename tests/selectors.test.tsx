@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useQuery } from '../src/addon/query/useQuery';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { QueryClientProvider } from '../src/addon/query/context';
+import { useQuery } from '../src/query/useQuery';
+import { QueryCache } from '../src/query/queryCache';
+import { QueryClientProvider } from '../src/query/context';
 import React from 'react';
 
 describe('useQuery Selectors', () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getStores } from './registry';
-import { subscribe } from '../core/proxy';
+import { subscribe } from '../store/proxy';
 
 export function StatePanel() {
     const storesSignal = getStores();
@@ -29,7 +29,7 @@ export function StatePanel() {
     );
 }
 
-function StoreItem({ entry }: { entry: { name: string, store: any } }) {
+function StoreItem({ entry }: { entry: { name: string, store: object } }) {
     const [expanded, setExpanded] = useState(true);
     const [data, setData] = useState(entry.store);
     const [flash, setFlash] = useState(false);
@@ -74,14 +74,16 @@ function StoreItem({ entry }: { entry: { name: string, store: any } }) {
     );
 }
 
-function JSONTree({ data }: { data: any }) {
+function JSONTree({ data }: { data: unknown }) {
     if (typeof data !== 'object' || data === null) {
         return <span style={{ color: '#ce9178' }}>{String(data)}</span>;
     }
 
+    const record = data as Record<string, unknown>;
+
     return (
         <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#9cdcfe' }}>
-            {Object.entries(data).map(([key, value]) => (
+            {Object.entries(record).map(([key, value]) => (
                 <div key={key} style={{ paddingLeft: '12px' }}>
                     <span style={{ color: '#dcdcaa' }}>{key}: </span>
                     <JSONValue value={value} />
@@ -91,7 +93,7 @@ function JSONTree({ data }: { data: any }) {
     );
 }
 
-function JSONValue({ value }: { value: any }) {
+function JSONValue({ value }: { value: unknown }) {
     if (typeof value === 'object' && value !== null) {
         if (Array.isArray(value)) {
             return <span>[{value.length}]</span>;

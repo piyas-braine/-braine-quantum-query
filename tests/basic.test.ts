@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createState } from '../src/core/proxy';
-import { scheduleUpdate } from '../src/core/scheduler';
+import { createState } from '../src/store/proxy';
+import { scheduleUpdate } from '../src/store/scheduler';
 
 describe('createState', () => {
     it('should be reactive', async () => {
@@ -8,7 +8,7 @@ describe('createState', () => {
         const listener = vi.fn();
 
         // Simulate active listener
-        const { setActiveListener } = await import('../src/core/proxy');
+        const { setActiveListener } = await import('../src/store/proxy');
         setActiveListener(listener);
 
         // Access property to subscribe
@@ -33,7 +33,7 @@ describe('createState', () => {
         // Accessing `store` to attach listener to "data" key is hard if it's new property.
         // But `store.data` exists.
 
-        const { setActiveListener } = await import('../src/core/proxy');
+        const { setActiveListener } = await import('../src/store/proxy');
         setActiveListener(listener);
         const _ = store.data; // subscribe to 'data'
         setActiveListener(null);

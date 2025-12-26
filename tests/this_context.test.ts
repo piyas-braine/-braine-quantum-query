@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryCache } from '../src/query/queryCache';
 
 describe('DX: "this" Context Safety', () => {
     it('should allow destructuring of methods without losing context', async () => {

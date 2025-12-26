@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { useQuery } from '../addon/query/useQuery';
-import { QuantumDevTools } from '../addon/query/devtools';
-import { QueryClientProvider, useQueryClient } from '../addon/query/context';
+import { useQuery } from '../query/useQuery';
+import { QuantumDevTools } from '../query/devtools';
+import { QueryClientProvider, createQueryClient } from '../query/context';
 
-const client = {
-    // Mock client creation for demo if needed, or use default provider
-    // In real app: const client = new QueryCache();
-};
+const queryClient = createQueryClient();
 
 function UserProfile({ id }: { id: number }) {
     const { data, isFetching, error } = useQuery({
@@ -33,7 +30,7 @@ export function DevToolsDemo() {
     const [userIds, setUserIds] = useState([1, 2]);
 
     return (
-        <QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
             <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
                 <h1>Quantum DevTools Demo</h1>
                 <button onClick={() => setUserIds(ids => [...ids, ids.length + 1])}>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { defineModel } from '../src/core/model';
+import { defineModel } from '../src/store/model';
 import { useStore } from '../src/react/autoHook';
 
 describe('defineModel', () => {

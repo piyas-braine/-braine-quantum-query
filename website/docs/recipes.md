@@ -1,57 +1,26 @@
 # Recipes
 
-## Authentication & Refresh Tokens
-Configure global authentication handling, including automatic token injection and seamless refresh flows on 401 errors.
+## Authentication Middleware
+Inject auth tokens into every request using the Plugin System.
 
 ```typescript
-import { createClient } from '@braine/quantum-query';
+import { queryCache } from '@braine/quantum-query';
 
-const client = createClient({
-  baseURL: 'https://api.example.com',
-  auth: {
-    // 1. Inject Token: Called before every request
-    getToken: async () => {
-      const token = localStorage.getItem('access_token');
-      return token; // Returns string or null
+const authPlugin = {
+    name: 'auth',
+    onFetchStart: (key) => {
+        console.log('Fetching', key);
+        // Note: Actual headers usually handled in your fetcher,
+        // but this is great for logging or analytics.
     },
-
-    // 2. Refresh Logic: Called automatically on 401 response
-    onTokenExpired: async (client) => {
-      try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) return null;
-
-        // Perform refresh using a separate fetch or client instance
-        // to avoid infinite loops if the refresh endpoint also returns 401
-        const response = await fetch('https://api.example.com/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken })
-        });
-
-        if (!response.ok) throw new Error('Refresh failed');
-
-        const data = await response.json();
-        
-        // Save new tokens
-        localStorage.setItem('access_token', data.accessToken);
-        localStorage.setItem('refresh_token', data.refreshToken);
-
-        return data.accessToken; // Return new token to retry original request
-      } catch (err) {
-        // Refresh failed - clean up and redirect
-        localStorage.clear();
-        window.location.href = '/login';
-        return null;
-      }
-    },
-
-    // 3. Auth Failed: Called if onTokenExpired returns null or fails
-    onAuthFailed: () => {
-      window.location.href = '/login';
+    onFetchError: (key, error) => {
+        if (error.status === 401) {
+            logout();
+        }
     }
-  }
-});
+};
+
+queryCache.use(authPlugin);
 ```
 
 ## Optimistic Updates
@@ -76,7 +45,6 @@ const handleAddTodo = async (newTodo) => {
 Simple implemention with a "Load More" button.
 
 ```tsx
-```tsx
 function PostList() {
     const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
         queryKey: ['posts'],
@@ -100,40 +68,4 @@ function PostList() {
         </div>
     );
 }
-```
-
-## Cache Tags (Invalidation Patterns)
-
-Target groups of queries for invalidation using **Tags** or **Hierarchical Keys**.
-
-### Option 1: Using Tags (Recommended)
-
-Assign tags to queries and invalidate them by tag.
-
-```tsx
-// 1. Assign Tag
-useQuery({
-    queryKey: ['user', id],
-    queryFn: fetchUser,
-    tags: ['User'] 
-});
-
-// 2. Invalidate Tag
-const mutation = useMutation({
-    mutationFn: updateUser,
-    invalidatesTags: ['User'] // Invalidates ALL queries with tag 'User'
-});
-```
-
-### Option 2: Hierarchical Keys
-
-Use the key structure itself as a tagging system.
-
-- `['posts']` -> Targets ALL posts.
-- `['posts', 'list']` -> Targets only the list.
-- `['posts', id]` -> Targets specific post.
-
-```tsx
-// Invalidates ['posts', 'list'], ['posts', 1], etc.
-queryCache.invalidate(['posts']);
 ```

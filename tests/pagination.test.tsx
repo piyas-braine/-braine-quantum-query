@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePaginatedQuery } from '../src/addon/query/pagination';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { QueryClientProvider } from '../src/addon/query/context';
+import { usePaginatedQuery } from '../src/query/pagination';
+import { QueryCache } from '../src/query/queryCache';
+import { QueryClientProvider } from '../src/query/context';
 import React from 'react';
 
 describe('usePaginatedQuery', () => {

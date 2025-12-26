@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createHttpClient } from '../src/addon/httpClient';
+import { createHttpClient } from '../src/httpClient';
 
 // Mock Fetch Global
 const mockFetch = vi.fn();
@@ -17,7 +17,7 @@ describe('createHttpClient', () => {
         const api = createHttpClient({ baseURL: 'https://api.test' });
         const res = await api.get<{ id: number }>('/users');
 
-        const req = mockFetch.mock.calls[0][0] as Request;
+        const req = mockFetch.mock.calls[0]![0] as Request;
         expect(req.url).toContain('/users');
         expect(res.id).toBe(1);
     });
@@ -65,7 +65,7 @@ describe('createHttpClient', () => {
         expect(mockFetch).toHaveBeenCalledTimes(2);
 
         // Second call should have refreshed token
-        const req = mockFetch.mock.calls[1][0] as Request;
+        const req = mockFetch.mock.calls[1]![0] as Request;
         expect(req.url).toContain('/secure');
         expect(req.headers.get('Authorization')).toBe('Bearer refreshed-token');
 

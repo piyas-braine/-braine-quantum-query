@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useQuery } from '../src/addon/query/useQuery';
+import { useQuery } from '../src/query/useQuery';
 import { z } from 'zod';
 import React from 'react';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { QueryClientProvider } from '../src/addon/query/context';
+import { QueryCache } from '../src/query/queryCache';
+import { QueryClientProvider } from '../src/query/context';
 
 // Define a schema
 const UserSchema = z.object({

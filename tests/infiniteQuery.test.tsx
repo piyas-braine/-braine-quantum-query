@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useInfiniteQuery } from '../src/addon/query/infiniteQuery';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { QueryClientProvider } from '../src/addon/query/context';
+import { useInfiniteQuery } from '../src/query/infiniteQuery';
+import { QueryCache } from '../src/query/queryCache';
+import { QueryClientProvider } from '../src/query/context';
 import React from 'react';
 
 describe('useInfiniteQuery', () => {
@@ -29,7 +29,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.nextCursor,
+                getNextPageParam: (last: any) => last.nextCursor,
                 initialPageParam: null
             }),
             { wrapper }
@@ -38,7 +38,7 @@ describe('useInfiniteQuery', () => {
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         expect(result.current.data?.pages).toHaveLength(1);
-        expect(result.current.data?.pages[0].items).toEqual([{ id: 1 }]);
+        expect((result.current.data?.pages[0] as any).items).toEqual([{ id: 1 }]);
         expect(result.current.hasNextPage).toBe(true);
     });
 
@@ -55,7 +55,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.nextCursor,
+                getNextPageParam: (last: any) => last.nextCursor,
                 initialPageParam: null
             }),
             { wrapper }
@@ -70,7 +70,7 @@ describe('useInfiniteQuery', () => {
         });
 
         await waitFor(() => expect(result.current.data?.pages).toHaveLength(2), { timeout: 3000 });
-        expect(result.current.data?.pages[1].items).toEqual([{ id: 2 }]);
+        expect((result.current.data?.pages[1] as any).items).toEqual([{ id: 2 }]);
     });
 
     it('should detect end of data', async () => {
@@ -84,7 +84,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.nextCursor,
+                getNextPageParam: (last: any) => last.nextCursor,
                 initialPageParam: null
             }),
             { wrapper }
@@ -163,7 +163,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed_refetch_robust'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.nextCursor,
+                getNextPageParam: (last: { nextCursor?: string }) => last.nextCursor,
                 initialPageParam: null
             }),
             { wrapper }
@@ -183,7 +183,7 @@ describe('useInfiniteQuery', () => {
 
         await waitFor(() => {
             expect(result.current.data?.pages).toHaveLength(1);
-            expect(result.current.data?.pages[0].items).toEqual([{ id: 3 }]);
+            expect((result.current.data?.pages[0] as { items: unknown[] }).items).toEqual([{ id: 3 }]);
         });
     });
 
@@ -198,7 +198,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.next,
+                getNextPageParam: (last: { next?: string }) => last.next,
                 initialPageParam: 'p1'
             }),
             { wrapper }
@@ -214,6 +214,7 @@ describe('useInfiniteQuery', () => {
         });
 
         await waitFor(() => {
+            // console.log('Current pageParams:', result.current.data?.pageParams);
             expect(result.current.data?.pageParams).toEqual(['p1', 'p2', 'p3']);
         }, { timeout: 10000 });
     }, 15000);
@@ -230,7 +231,7 @@ describe('useInfiniteQuery', () => {
             useInfiniteQuery({
                 queryKey: ['feed'],
                 queryFn: mockFn,
-                getNextPageParam: (last) => last.next,
+                getNextPageParam: (last: any) => last.next,
                 initialPageParam: 1
             }),
             { wrapper }

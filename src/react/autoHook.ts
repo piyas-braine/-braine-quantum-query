@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
-import { setActiveListener, getActiveListener } from '../core/proxy';
+import { setActiveListener, getActiveListener } from '../store/proxy';
 
 // Use strict React checks
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;

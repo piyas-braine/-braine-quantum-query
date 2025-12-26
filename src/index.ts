@@ -1,10 +1,10 @@
-export { createState, subscribe } from './core/proxy';
-export { defineModel } from './core/model';
+export { createState, subscribe } from './store/proxy';
+export { defineModel } from './store/model';
 export { useStore } from './react/autoHook';
-export { scheduleUpdate } from './core/scheduler';
+export { scheduleUpdate } from './store/scheduler';
 export { enableDevTools } from './middleware/devtools';
-export { computed } from './core/computed';
-export * from './addon/httpClient';
-export * from './core/asyncUtils';
-export * from './addon/query';
-export { fromSignal, toSignal } from './core/bridge';
+export { computed } from './store/computed';
+export * from './httpClient';
+export * from './store/asyncUtils';
+export * from './query';
+export { fromSignal, toSignal } from './store/bridge';

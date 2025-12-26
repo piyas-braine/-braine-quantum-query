@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createSignal, computed } from '../src/addon/signals';
+import { createSignal, computed } from '../src/signals';
 
 describe('Computed Signals', () => {
     it('should derive state from a source signal', () => {

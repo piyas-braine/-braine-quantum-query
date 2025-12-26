@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor, screen } from '@testing-library/react';
 import React, { Suspense } from 'react';
-import { QueryClientProvider } from '../src/addon/query/context';
-import { QueryCache } from '../src/addon/query/queryCache';
-import { useSuspenseQuery } from '../src/addon/query/useSuspenseQuery';
+import { QueryClientProvider } from '../src/query/context';
+import { QueryCache } from '../src/query/queryCache';
+import { useSuspenseQuery } from '../src/query/useSuspenseQuery';
 
 const createWrapper = () => {
     const client = new QueryCache();
     return {
         wrapper: ({ children }: { children: React.ReactNode }) => (
-            React.createElement(QueryClientProvider, { client }, children)
+            React.createElement(QueryClientProvider, { client, children })
         ),
         client
     };
@@ -20,7 +20,7 @@ const SuspenseComponent = ({ queryFn, queryKey }: any) => {
         queryKey,
         queryFn
     });
-    return <div>Data: {data}</div>;
+    return <div>Data: {data as unknown as React.ReactNode}</div>;
 };
 
 describe('Suspense Support', () => {

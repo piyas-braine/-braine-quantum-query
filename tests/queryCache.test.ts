@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../src/addon/query/queryCache';
+import { QueryCache } from '../src/query/queryCache';
 
 describe('QueryCache', () => {
     let cache: QueryCache;

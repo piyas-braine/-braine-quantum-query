@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createSignal } from '../src/addon/signals';
-import { createState } from '../src/core/proxy';
-import { fromSignal, toSignal } from '../src/core/bridge';
+import { createSignal } from '../src/signals';
+import { createState } from '../src/store/proxy';
+import { fromSignal, toSignal } from '../src/store/bridge';
 
 describe('Quantum Bridge (Unification)', () => {
     describe('fromSignal (Signal -> Proxy)', () => {

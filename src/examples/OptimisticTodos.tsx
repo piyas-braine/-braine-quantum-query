@@ -4,8 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, optimisticHelpers } from '../addon/query';
-import { createHttpClient } from '../addon/httpClient';
+import { useQuery, useMutation, useQueryClient } from '../query';
+import { createHttpClient } from '../httpClient';
 
 const api = createHttpClient({ baseURL: 'https://api.example.com' });
 
@@ -17,6 +17,7 @@ interface Todo {
 
 export function OptimisticTodoList() {
     const [newTodoText, setNewTodoText] = useState('');
+    const client = useQueryClient();
 
     // Fetch todos with auto-refetch on focus
     const { data: todos, isLoading, refetch } = useQuery<Todo[]>({
@@ -30,36 +31,24 @@ export function OptimisticTodoList() {
     const addTodo = useMutation<Todo, { text: string }>({
         mutationFn: (vars) => api.post('/todos', vars),
 
-        onMutate: async (variables) => {
-            // Cancel ongoing queries
-            await optimisticHelpers.cancelQueries(['todos']);
-
-            // Snapshot current value
-            const previous = optimisticHelpers.getQueryData<Todo[]>(['todos']);
-
-            // Optimistically add new todo
-            optimisticHelpers.setQueryData<Todo[]>(['todos'], (old = []) => [
-                ...old,
-                {
-                    id: `temp-${Date.now()}`,
-                    text: variables.text,
-                    completed: false
-                }
-            ]);
-
-            return { previous };
-        },
-
-        onError: (err, variables, context) => {
-            // Rollback on error
-            if (context?.previous) {
-                optimisticHelpers.setQueryData(['todos'], context.previous);
+        optimistic: {
+            queryKey: ['todos'],
+            update: (variables, oldData) => {
+                const old = (oldData as Todo[]) || [];
+                return [
+                    ...old,
+                    {
+                        id: `temp-${Date.now()}`,
+                        text: variables.text,
+                        completed: false
+                    }
+                ];
             }
         },
 
         onSuccess: () => {
             // Invalidate and refetch to get server data
-            optimisticHelpers.invalidateQueries(['todos']);
+            client.invalidate(['todos']);
             refetch();
         }
     });
@@ -68,25 +57,20 @@ export function OptimisticTodoList() {
     const toggleTodo = useMutation<Todo, { id: string }>({
         mutationFn: (vars) => api.patch(`/todos/${vars.id}/toggle`, {}),
 
-        onMutate: async (variables) => {
-            const previous = optimisticHelpers.getQueryData<Todo[]>(['todos']);
-
-            // Optimistically toggle
-            optimisticHelpers.setQueryData<Todo[]>(['todos'], (old = []) =>
-                old.map(todo =>
+        optimistic: {
+            queryKey: ['todos'],
+            update: (variables, oldData) => {
+                const old = (oldData as Todo[]) || [];
+                return old.map(todo =>
                     todo.id === variables.id
                         ? { ...todo, completed: !todo.completed }
                         : todo
-                )
-            );
-
-            return { previous };
+                );
+            }
         },
 
-        onError: (err, variables, context) => {
-            if (context?.previous) {
-                optimisticHelpers.setQueryData(['todos'], context.previous);
-            }
+        onSettled: () => {
+            client.invalidate(['todos']);
         }
     });
 
@@ -94,20 +78,11 @@ export function OptimisticTodoList() {
     const deleteTodo = useMutation<void, { id: string }>({
         mutationFn: (vars) => api.delete(`/todos/${vars.id}`),
 
-        onMutate: async (variables) => {
-            const previous = optimisticHelpers.getQueryData<Todo[]>(['todos']);
-
-            // Optimistically remove
-            optimisticHelpers.setQueryData<Todo[]>(['todos'], (old = []) =>
-                old.filter(todo => todo.id !== variables.id)
-            );
-
-            return { previous };
-        },
-
-        onError: (err, variables, context) => {
-            if (context?.previous) {
-                optimisticHelpers.setQueryData(['todos'], context.previous);
+        optimistic: {
+            queryKey: ['todos'],
+            update: (variables, oldData) => {
+                const old = (oldData as Todo[]) || [];
+                return old.filter(todo => todo.id !== variables.id);
             }
         }
     });
