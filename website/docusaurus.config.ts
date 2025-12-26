@@ -7,11 +7,11 @@ const config: Config = {
   tagline: 'State Management at the Speed of Light',
   favicon: 'img/favicon.svg',
 
-  url: 'https://braine.github.io',
-  baseUrl: '/',
+  url: 'https://piyas-braine.github.io',
+  baseUrl: '/-braine-quantum-query/',
 
-  organizationName: 'braine',
-  projectName: 'quantum-query',
+  organizationName: 'piyas-braine',
+  projectName: '-braine-quantum-query',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -27,7 +27,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/braine/quantum-query/tree/main/website/',
+          editUrl: 'https://github.com/piyas-braine/-braine-quantum-query/tree/main/website/',
         },
         blog: false, // Disable blog for now
         theme: {
@@ -58,7 +58,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/braine/quantum-query',
+          href: 'https://github.com/piyas-braine/-braine-quantum-query',
           label: 'GitHub',
           position: 'right',
         },
@@ -77,7 +77,7 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'GitHub', href: 'https://github.com/braine/quantum-query' },
+            { label: 'GitHub', href: 'https://github.com/piyas-braine/-braine-quantum-query' },
           ],
         },
       ],
