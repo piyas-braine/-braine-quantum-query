@@ -18,6 +18,7 @@
 - **[Getting Started](docs/introduction/getting-started.md)**: Installation & Quick Start.
 - **[Mental Model](docs/concepts/mental-model.md)**: Unifying Server & Client State.
 - **[Mutations](docs/guides/mutations.md)**: Declarative Optimistic UI.
+- **[DevTools](website/docs/plugins/devtools.md)**: Built-in debugging interface.
 - **[Smart Models](docs/concepts/mental-model.md#smart-models-advanced)**: Domain Logic Patterns.
 
 ---
@@ -103,6 +104,31 @@ function ThemeToggle() {
     );
 }
 ```
+
+## 🛠️ DevTools
+
+Quantum Query includes built-in DevTools for debugging your queries and state.
+
+```tsx
+import { QuantumDevTools } from '@braine/quantum-query';
+
+function App() {
+  return (
+    <>
+      <YourApp />
+      {/* Add DevTools - automatically excluded in production */}
+      {process.env.NODE_ENV === 'development' && <QuantumDevTools />}
+    </>
+  );
+}
+```
+
+**Features**:
+- 🔍 **Query Explorer** - Inspect all active queries, their status, and data
+- 📊 **Real-time Updates** - See queries update in real-time
+- 🎯 **Manual Controls** - Refetch, invalidate, or reset any query
+- 🎨 **Dark Theme** - Beautiful, minimal interface
+- 📦 **Tree-shakeable** - Zero bytes in production builds
 
 ## License
 MIT
