@@ -12,6 +12,7 @@ export interface AtomOptions<T> {
     storage?: 'local' | 'session' | StorageAdapter;
     validate?: (data: unknown) => T; // Schema-first validation
     debug?: boolean;
+    hydrateSync?: boolean; // 10/10: Deterministic testing escape hatch
 }
 
 /**
@@ -29,7 +30,7 @@ export function atom<T>(initialValue: T, options?: AtomOptions<T>): Signal<T> {
 }
 
 function setupPersistence<T>(s: Signal<T>, options: AtomOptions<T>) {
-    const { key, storage = 'local', debug } = options;
+    const { key, storage = 'local', debug, hydrateSync } = options;
     if (!key) return;
 
     let engine: StorageAdapter | null = null;
@@ -44,29 +45,37 @@ function setupPersistence<T>(s: Signal<T>, options: AtomOptions<T>) {
 
     if (!engine) return;
 
-    // 1. Hydrate
-    try {
-        const stored = engine.getItem(key);
-        const applyValue = (val: string) => {
-            try {
-                const parsed = JSON.parse(val);
-                const validated = options.validate ? options.validate(parsed) : parsed as T;
-                s.set(validated);
-                if (debug) console.log(`[Quantum] Hydrated atom '${key}'`);
-            } catch (e) {
-                if (debug) console.error(`[Quantum] Hydration validation failed for '${key}'`, e);
-            }
-        };
+    const hydrate = () => {
+        try {
+            const stored = engine?.getItem(key);
+            const applyValue = (val: string) => {
+                try {
+                    const parsed = JSON.parse(val);
+                    const validated = options.validate ? options.validate(parsed) : parsed as T;
+                    s.set(validated);
+                    if (debug) console.log(`[Quantum] Hydrated atom '${key}'`);
+                } catch (e) {
+                    if (debug) console.error(`[Quantum] Hydration validation failed for '${key}'`, e);
+                }
+            };
 
-        if (stored instanceof Promise) {
-            stored.then(val => {
-                if (val) applyValue(val);
-            });
-        } else if (stored) {
-            applyValue(stored);
+            if (stored instanceof Promise) {
+                stored.then(val => {
+                    if (val) applyValue(val);
+                });
+            } else if (stored) {
+                applyValue(stored);
+            }
+        } catch (err) {
+            if (debug) console.error(`[Quantum] Hydration error`, err);
         }
-    } catch (err) {
-        if (debug) console.error(`[Quantum] Hydration error`, err);
+    };
+
+    // 1. Hydrate (Async - Non-blocking 10/10)
+    if (hydrateSync) {
+        hydrate();
+    } else {
+        Promise.resolve().then(hydrate);
     }
 
     // 2. Persist

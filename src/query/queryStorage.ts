@@ -23,12 +23,16 @@ export interface CacheEntry<T = unknown> {
     key: QueryKeyInput;
     tags?: string[];
     isInvalidated?: boolean;
+    promise?: Promise<T>; // For Suspense
 }
+
+import { QueryKeyTrie } from './trie';
 
 export class QueryStorage {
     private signals = new Map<string, Signal<CacheEntry<unknown> | undefined>>();
     private gcTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private lruOrder = new Set<string>(); // Tracks access order (least to most recent)
+    public trie = new QueryKeyTrie(); // 10/10: O(K) Lookup
 
     // Default configuration
     constructor(
@@ -128,6 +132,9 @@ export class QueryStorage {
 
             this.enforceMaxSize();
         }
+
+        // 10/10 Indexing
+        this.trie.insert(entry.key, key);
     }
 
     delete(key: string): void {
@@ -140,6 +147,10 @@ export class QueryStorage {
                     if (set.size === 0) this.tagIndex.delete(tag);
                 }
             }
+        }
+
+        if (entry?.key) {
+            this.trie.remove(entry.key, key);
         }
 
         this.signals.delete(key);
@@ -175,6 +186,7 @@ export class QueryStorage {
     clear(): void {
         this.signals.clear();
         this.tagIndex.clear();
+        this.trie = new QueryKeyTrie(); // Reset Trie
         this.lruOrder.clear();
         this.gcTimers.forEach(timer => clearTimeout(timer));
         this.gcTimers.clear();

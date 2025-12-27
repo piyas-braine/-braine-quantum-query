@@ -1,7 +1,7 @@
 import { QueryClient, type CacheEntry, type FetchDirection } from './queryClient';
 import { type InfiniteData } from './types';
 import { type Signal, createSignal, computed, effect, untracked } from '../signals';
-import { stableHash, isDeepEqual } from './utils';
+import { stableHash } from './utils';
 import { getLogger } from './plugins/logger';
 import { focusManager } from './focusManager';
 import { onlineManager } from './onlineManager';
@@ -38,10 +38,10 @@ export interface InfiniteQueryObserverResult<T> {
 
 export class InfiniteQueryObserver<T, TPageParam = unknown> {
     private client: QueryClient;
-    public options$: Signal<InfiniteQueryObserverOptions<T, TPageParam>>;
+    private options$: Signal<InfiniteQueryObserverOptions<T, TPageParam>>;
     public result$: Signal<InfiniteQueryObserverResult<T>>;
     private unsubscribe: (() => void) | null = null;
-    private lastFetchTime = 0;
+    private abortController: AbortController | null = null;
 
     constructor(client: QueryClient, options: InfiniteQueryObserverOptions<T, TPageParam>) {
         this.client = client;
@@ -103,16 +103,15 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
                 refetch: this.refetch
             };
 
-            // 10/10 Stability: Reference check for complex nested data (InfiniteData)
-            // Replace expensive JSON.stringify with high-performance isDeepEqual.
-            const isDataEqual = lastResult?.data === nextResult.data || isDeepEqual(lastResult?.data, nextResult.data);
-
+            // 10/10 Performance: Removed `isDeepEqual` to prevent main-thread blocking.
+            // We rely on structural sharing. If reference changed, data changed.
             if (lastResult &&
-                isDataEqual &&
+                lastResult.data === nextResult.data &&
                 lastResult.isFetching === nextResult.isFetching &&
                 lastResult.status === nextResult.status &&
                 lastResult.hasNextPage === nextResult.hasNextPage &&
-                lastResult.hasPreviousPage === nextResult.hasPreviousPage
+                lastResult.hasPreviousPage === nextResult.hasPreviousPage &&
+                lastResult.error === nextResult.error
             ) {
                 return lastResult;
             }
@@ -129,16 +128,13 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
         if (current === options) return;
 
         const isKeyEqual = stableHash(current.queryKey) === stableHash(options.queryKey);
+        // Shallow compare critical primitives
         const isConfigEqual =
             current.enabled === options.enabled &&
-            current.staleTime === options.staleTime;
+            current.staleTime === options.staleTime &&
+            current.retry === options.retry;
 
-        // Only update signal if core inputs changed. 
-        // queryFn/getParams are handled inside side-effects/computed via untracked or reactive pulls.
-        if (!isKeyEqual || !isConfigEqual ||
-            current.getNextPageParam !== options.getNextPageParam ||
-            current.getPreviousPageParam !== options.getPreviousPageParam
-        ) {
+        if (!isKeyEqual || !isConfigEqual) {
             this.options$.set(options);
         }
     }
@@ -157,8 +153,6 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
                 const timestamp = entry?.timestamp || 0;
                 const isStale = entry?.isInvalidated || (entry?.data && (now - timestamp) > staleTime);
 
-                // 10/10 Logic: Prevent refetching if we are already fetching (any direction)
-                // or if there is an error.
                 if ((!entry?.data || isStale) && !res.isFetching && !res.isError) {
                     untracked(() => this.fetchInitial());
                 }
@@ -180,32 +174,47 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
         });
 
         this.unsubscribe = () => {
+            this.cancel();
             dispose();
             disposeFocus();
             disposeOnline();
         };
     }
 
+    private cancel() {
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+    }
+
     fetchInitial = async (options?: { force?: boolean }) => {
+        // Cancel any pending requests
+        this.cancel();
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         const opts = this.options$.get();
         const infiniteKey = [...opts.queryKey, '__infinite__'];
 
         try {
             const entrySignal = this.client.getSignal<InfiniteData<T>>(infiniteKey);
-            const data = entrySignal.get()?.data;
+            const currentState = entrySignal.get()?.data;
 
-            if (data && data.pageParams.length > 0 && !options?.force) {
-                // 10/10 Logic: Background refetch should NOT reset the data.
-                // We refetch the first page and merge it with the existing page list.
-                const firstParam = data.pageParams[0];
+            // Background refetch logic
+            if (currentState && currentState.pageParams.length > 0 && !options?.force) {
+                const firstParam = currentState.pageParams[0];
                 const firstPage = await opts.queryFn({ pageParam: firstParam as TPageParam });
+                if (signal.aborted) return;
 
                 const latest = entrySignal.get()?.data;
                 if (!latest) return;
 
+                // Structural sharing
                 const updatedData = {
                     ...latest,
                     pages: [firstPage, ...latest.pages.slice(1)],
+                    // pageParams remain the same
                 };
 
                 this.client.set(infiniteKey, updatedData, {
@@ -215,82 +224,107 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
                 return;
             }
 
+            // Fresh fetch
             const initialParam = opts.initialPageParam;
             const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
 
-            const initialData = await this.client.fetch(infiniteKey, async () => {
+            const initialData = await this.client.fetch(infiniteKey, async (ctx) => {
                 const firstPage = await opts.queryFn({ pageParam: firstParam });
                 return {
                     pages: [firstPage],
                     pageParams: [firstParam]
                 } as InfiniteData<T>;
-            }, { fetchDirection: 'initial', retry: opts.retry });
-
-            this.client.set(infiniteKey, initialData, {
-                staleTime: opts.staleTime,
-                cacheTime: opts.cacheTime
+            }, {
+                fetchDirection: 'initial',
+                retry: opts.retry,
+                signal
             });
+
+            if (!signal.aborted) {
+                this.client.set(infiniteKey, initialData, {
+                    staleTime: opts.staleTime,
+                    cacheTime: opts.cacheTime
+                });
+            }
         } catch (err) {
-            getLogger().error("Initial fetch failed", err);
+            if (!signal.aborted) {
+                getLogger().error("Initial fetch failed", err);
+            }
         }
     }
 
     fetchNextPage = async () => {
         const res = this.result$.get();
-        const opts = this.options$.get();
         if (!res.hasNextPage || res.isFetching || !res.data) return;
 
+        this.cancel();
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
+        const opts = this.options$.get();
         const infiniteKey = [...opts.queryKey, '__infinite__'];
         const lastPage = res.data.pages[res.data.pages.length - 1];
-        if (!lastPage) {
-            return;
-        }
+
+        if (!lastPage) return;
+
         const nextPageParam = opts.getNextPageParam?.(lastPage, res.data.pages);
         if (nextPageParam === undefined) return;
 
         try {
-            const updatedData = await this.client.fetch(infiniteKey, async () => {
+            const updatedData = await this.client.fetch(infiniteKey, async (ctx) => {
                 const newPage = await opts.queryFn({ pageParam: nextPageParam });
+                if (ctx.signal?.aborted) throw new Error("Aborted");
+
                 const currentData = this.client.getSignal<InfiniteData<T>>(infiniteKey).get()?.data;
                 if (!currentData) throw new Error("Infinite query data missing");
 
-                const updatedParams = [...currentData.pageParams, nextPageParam];
-                const nextCursor = opts.getNextPageParam?.(newPage, [...currentData.pages, newPage]);
-                if (nextCursor !== undefined) {
-                    updatedParams.push(nextCursor as TPageParam);
-                }
-
+                // 10/10 Logic: Ensure strict 1:1 mapping between pages and params
+                // pageParams[i] is the param used to fetch pages[i].
                 return {
                     pages: [...currentData.pages, newPage],
-                    pageParams: updatedParams,
+                    pageParams: [...currentData.pageParams, nextPageParam],
                 };
-            }, { fetchDirection: 'next', retry: opts.retry });
-
-            this.client.set(infiniteKey, updatedData, {
-                staleTime: opts.staleTime,
-                cacheTime: opts.cacheTime
+            }, {
+                fetchDirection: 'next',
+                retry: opts.retry,
+                signal
             });
+
+            if (!signal.aborted) {
+                this.client.set(infiniteKey, updatedData, {
+                    staleTime: opts.staleTime,
+                    cacheTime: opts.cacheTime
+                });
+            }
         } catch (err) {
-            getLogger().error("Fetch next page failed", err);
+            if (!signal.aborted) {
+                getLogger().error("Fetch next page failed", err);
+            }
         }
     }
 
     fetchPreviousPage = async () => {
         const res = this.result$.get();
-        const opts = this.options$.get();
         if (!res.hasPreviousPage || res.isFetching || !res.data) return;
 
+        this.cancel();
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
+        const opts = this.options$.get();
         const infiniteKey = [...opts.queryKey, '__infinite__'];
         const firstPage = res.data.pages[0];
-        if (!firstPage) {
-            return;
-        }
+
+        if (!firstPage) return;
+
         const previousPageParam = opts.getPreviousPageParam?.(firstPage, res.data.pages);
         if (previousPageParam === undefined) return;
 
         try {
-            const updatedData = await this.client.fetch(infiniteKey, async () => {
+            const updatedData = await this.client.fetch(infiniteKey, async (ctx) => {
                 const newPage = await opts.queryFn({ pageParam: previousPageParam });
+                if (ctx.signal?.aborted) throw new Error("Aborted");
+
                 const currentData = this.client.getSignal<InfiniteData<T>>(infiniteKey).get()?.data;
                 if (!currentData) throw new Error("Infinite query data missing");
 
@@ -298,47 +332,39 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
                     pages: [newPage, ...currentData.pages],
                     pageParams: [previousPageParam, ...currentData.pageParams],
                 };
-            }, { fetchDirection: 'previous', retry: opts.retry });
-
-            this.client.set(infiniteKey, updatedData, {
-                staleTime: opts.staleTime,
-                cacheTime: opts.cacheTime
+            }, {
+                fetchDirection: 'previous',
+                retry: opts.retry,
+                signal
             });
+
+            if (!signal.aborted) {
+                this.client.set(infiniteKey, updatedData, {
+                    staleTime: opts.staleTime,
+                    cacheTime: opts.cacheTime
+                });
+            }
         } catch (err) {
-            getLogger().error("Fetch previous page failed", err);
+            if (!signal.aborted) {
+                getLogger().error("Fetch previous page failed", err);
+            }
         }
     }
 
     refetch = async () => {
+        this.cancel();
         const opts = this.options$.get();
         const infiniteKey = [...opts.queryKey, '__infinite__'];
 
-        // Clear existing data and refetch from scratch
+        // Invalidate to notify UI of stale state if needed, but we don't clear data immediately?
         this.client.invalidate(infiniteKey);
 
-        // Force a fresh initial fetch (resets to single page)
-        const initialParam = opts.initialPageParam;
-        const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
-
-        try {
-            const initialData = await this.client.fetch(infiniteKey, async () => {
-                const firstPage = await opts.queryFn({ pageParam: firstParam });
-                return {
-                    pages: [firstPage],
-                    pageParams: [firstParam]
-                } as InfiniteData<T>;
-            }, { fetchDirection: 'initial', retry: opts.retry });
-
-            this.client.set(infiniteKey, initialData, {
-                staleTime: opts.staleTime,
-                cacheTime: opts.cacheTime
-            });
-        } catch (err) {
-            getLogger().error("Refetch failed", err);
-        }
+        // Force fully fresh start
+        await this.fetchInitial({ force: true });
     }
 
     destroy() {
+        this.cancel();
         if (this.unsubscribe) this.unsubscribe();
     }
 }

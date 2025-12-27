@@ -23,6 +23,9 @@ export const RetryMiddleware: Middleware<unknown> = async (ctx, next) => {
     let config: RetryConfig;
     if (typeof retryConfigRaw === 'number') {
         config = { retries: retryConfigRaw };
+    } else if (typeof retryConfigRaw === 'boolean') {
+        // 10/10 Logic: Handle boolean shortcut
+        config = retryConfigRaw ? { retries: 3 } : { retries: 0 };
     } else if (typeof retryConfigRaw === 'object' && retryConfigRaw !== null) {
         config = retryConfigRaw as RetryConfig;
     } else {

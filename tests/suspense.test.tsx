@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor, screen } from '@testing-library/react';
+import { render, waitFor, screen, act } from '@testing-library/react';
 import React, { Suspense } from 'react';
 import { QueryClientProvider } from '../src/query/context';
 import { QueryClient } from '../src/query/queryClient';
@@ -50,4 +50,39 @@ describe('Suspense Support', () => {
             expect(screen.getByText('Data: Resolved Data')).toBeDefined();
         });
     });
+    it('should throw error to ErrorBoundary', async () => {
+        const { wrapper: Wrapper } = createWrapper();
+        const queryKey = ['suspense-error'];
+        const queryFn = vi.fn().mockRejectedValue(new Error('Boom'));
+
+        // Prevent console.error from jsdom for this expected error
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Simple Error Boundary
+        class ErrorBoundary extends React.Component<{ fallback: React.ReactNode, children: React.ReactNode }, { hasError: boolean }> {
+            state = { hasError: false };
+            static getDerivedStateFromError() { return { hasError: true }; }
+            render() {
+                if (this.state.hasError) return this.props.fallback;
+                return this.props.children;
+            }
+        }
+
+        render(
+            <Wrapper>
+                <ErrorBoundary fallback={<div>Error Caught</div>}>
+                    <Suspense fallback={<div>Loading...</div>}>
+                        <SuspenseComponent queryKey={queryKey} queryFn={queryFn} />
+                    </Suspense>
+                </ErrorBoundary>
+            </Wrapper>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Error Caught')).toBeDefined();
+        });
+
+        consoleSpy.mockRestore();
+    });
+
 });

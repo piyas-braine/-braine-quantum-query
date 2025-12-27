@@ -1,7 +1,7 @@
 import { type QueryClient, type QueryKeyInput, type CacheEntry, type QueryStatus, QueryError, reportError } from './queryClient';
 import { type Schema } from './types';
 import { type Signal, computed, effect, createSignal, untracked } from '../signals';
-import { stableHash, isDeepEqual } from './utils';
+import { stableHash } from './utils';
 import { validateWithSchema } from './plugins/validation';
 import { focusManager } from './focusManager';
 import { onlineManager } from './onlineManager';
@@ -124,9 +124,10 @@ export class QueryObserver<T, TData = T> {
                 refetch: this.refetch
             };
 
-            // 10/10 Stability: If nothing meaningful changed, return the EXACT same reference.
-            // Replace expensive JSON.stringify with high-performance isDeepEqual.
-            const isDataEqual = lastResult?.data === nextResult.data || isDeepEqual(lastResult?.data, nextResult.data);
+            // 10/10 Stability: Reference equality is sufficient for Signals.
+            // We removed `isDeepEqual` to prevent main-thread blocking on large datasets.
+            // If the user wants deep equality, they should use memoized selectors.
+            const isDataEqual = lastResult?.data === nextResult.data;
 
             if (lastResult &&
                 isDataEqual &&

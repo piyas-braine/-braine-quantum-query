@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { atom } from '../src/store/model';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -8,7 +8,10 @@ describe('Magic Persistence (Atoms)', () => {
     // Mock LocalStorage
     const mockStorage = new Map<string, string>();
     const localStorageMock = {
-        getItem: vi.fn((key: string) => mockStorage.get(key) || null),
+        getItem: vi.fn((key: string) => {
+            console.log('[Test] getItem called:', key);
+            return mockStorage.get(key) || null;
+        }),
         setItem: vi.fn((key: string, value: string) => mockStorage.set(key, value)),
         removeItem: vi.fn((key: string) => mockStorage.delete(key))
     };
@@ -20,13 +23,22 @@ describe('Magic Persistence (Atoms)', () => {
         global.window = { localStorage: localStorageMock };
     });
 
-    it('should hydrate from localStorage (Sync)', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('should hydrate from localStorage (Sync using hydrateSync)', () => {
         // Setup existing data
         mockStorage.set('user-store', JSON.stringify({ name: 'Alice' }));
 
-        const user$ = atom({ name: 'Bob' }, { key: 'user-store', storage: 'local' });
+        // 10/10 Test Practice: DI + Determinism
+        const user$ = atom({ name: 'Bob' }, {
+            key: 'user-store',
+            storage: localStorageMock as any,
+            hydrateSync: true
+        });
 
-        // Should be Alice instantly (sync hydration for local)
+        // Should be Alice safely
         expect(user$.get().name).toBe('Alice');
     });
 

@@ -21,7 +21,7 @@ const { data, isLoading, error } = useQuery(options)
 | **`select`** | \`(data: T) => R\` | - | Transform/Select data. **Optimizes renders.** |
 | **`initialData`** | \`T\` | - | Initial data to populate the cache. |
 | **`placeholderData`** | \`T\` | - | Data to show while loading (not cached). |
-| **`retry`** | \`boolean | number\` | \`3\` | Number of retries on failure. |
+| **`retry`** | \`boolean \| number\` | \`3\` | Number of retries on failure. \`true\` defaults to 3. |
 | **`retryDelay`** | \`number | (attempt) => number\` | - | Delay between retries. |
 | **`tags`** | \`string[]\` | - | Tags for O(1) group invalidation. |
 | **`schema`** | \`Schema&lt;T&gt;\` | - | Zod-compatible validation schema. |

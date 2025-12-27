@@ -154,34 +154,39 @@ const SeniorVerdict = () => (
 );
 
 const CodeComparison = () => {
-  // ... imports ...
-  const CODE_OLD = `// Legacy Redux
-const count = useSelector(state => state.count);
-const dispatch = useDispatch();
+  const CODE_STANDARD = `// Standard Query (Re-renders)
+function Page() {
+  const { data } = useQuery(...);
+  // Entire component re-runs
+  // every status change
+  return <div>{data.name}</div>;
+}`;
 
-const increment = () => {
-  dispatch({ type: 'INCREMENT' });
-};`;
-  const FULL_CODE_NEW = `// Quantum Way
-const count = createSignal(0);
+  const CODE_QUANTUM = `// Quantum Query (Zero Renders)
+function Page() {
+  const query$ = useQuery$(...);
+  // Component runs ONCE.
+  return (
+    <SignalValue signal={query$}>
+      {d => d.name}
+    </SignalValue>
+  );
+}`;
 
-const increment = () => {
-  count.value++;
-};`;
-  const typedCode = useTypewriter(FULL_CODE_NEW, 30);
   return (
     <section className={styles.codeSection}>
       <div className={styles.contentSection}>
-        <Heading as="h2" className={styles.gridSectionTitle}>Write less code.</Heading>
-        <p className={styles.codeDescription}>90% less boilerplate. 100% more type safety.</p>
+        <Heading as="h2" className={styles.gridSectionTitle}>The "Impossible" Reactivity.</Heading>
+        <p className={styles.codeDescription}>Bypass React's render cycle completely with the <code>useQuery$</code> hook.
+          Update 1,000 items in a list without re-rendering the list container.</p>
         <div className={styles.comparisonGrid}>
           <div>
-            <span className={styles.codeLabel}>Legacy Pattern</span>
-            <div className={styles.codeBoxShim}><CodeBlock language="tsx">{CODE_OLD}</CodeBlock></div>
+            <span className={styles.codeLabel}>TanStack Query Style</span>
+            <div className={styles.codeBoxShim}><CodeBlock language="tsx">{CODE_STANDARD}</CodeBlock></div>
           </div>
           <div>
-            <span className={styles.codeLabel} style={{ color: 'var(--ifm-color-primary)' }}>Quantum Pattern</span>
-            <div className={styles.codeBoxShim}><CodeBlock language="tsx">{typedCode}</CodeBlock></div>
+            <span className={styles.codeLabel} style={{ color: 'var(--ifm-color-primary)' }}>Quantum Style</span>
+            <div className={styles.codeBoxShim}><CodeBlock language="tsx">{CODE_QUANTUM}</CodeBlock></div>
           </div>
         </div>
       </div>

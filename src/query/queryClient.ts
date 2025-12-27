@@ -183,11 +183,27 @@ export class QueryClient {
 
         try {
             // 2. Execute Remote Fetch (Deduplicated)
-            const data = await this.remotes.fetch(key, fn, {
+            const fetchPromise = this.remotes.fetch(key, fn, {
                 signal: options?.signal,
                 retry: options?.retry,
                 retryDelay: options?.retryDelay
             });
+
+            this.storage.set(key, {
+                data: currentEntry?.data,
+                status: currentEntry?.status || 'pending',
+                error: null,
+                isFetching: true,
+                fetchDirection: direction,
+                timestamp: currentEntry?.timestamp || Date.now(),
+                staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
+                cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
+                key: queryKey,
+                tags: mergedTags,
+                promise: fetchPromise as Promise<T> // Store for Suspense
+            });
+
+            const data = await fetchPromise;
 
             this.storage.set(key, {
                 data,
@@ -200,7 +216,8 @@ export class QueryClient {
                 staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
                 cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
                 key: queryKey,
-                tags: mergedTags
+                tags: mergedTags,
+                promise: undefined // Clear promise
             });
 
             // 3. Optional Schema Validation
@@ -223,7 +240,8 @@ export class QueryClient {
                 staleTime: currentEntry?.staleTime ?? this.defaultStaleTime,
                 cacheTime: currentEntry?.cacheTime ?? this.defaultCacheTime,
                 key: queryKey,
-                tags: mergedTags
+                tags: mergedTags,
+                promise: undefined // Clear promise
             });
 
             this.pluginManager.onFetchError(normalizedKey, err);
@@ -235,21 +253,19 @@ export class QueryClient {
      * Invalidate queries
      */
     invalidate = (queryKey: QueryKeyInput): void => {
-        const prefix = this.storage.generateKey(queryKey);
         const normalizedKey = this.normalizeKey(queryKey);
 
         this.pluginManager.onInvalidate(normalizedKey);
 
-        // Soft invalidation logic
-        const allKeys = this.storage.getSnapshot().keys();
-        for (const key of allKeys) {
-            if (key === prefix || key.startsWith(prefix.slice(0, -1))) {
-                const signal = this.storage.get(key, false);
-                if (signal) {
-                    const current = signal.get();
-                    if (current) {
-                        signal.set({ ...current, isInvalidated: true });
-                    }
+        // 10/10 Invalidation: O(K) Lookup using Trie
+        const matchingKeys = this.storage.trie.getMatchingKeys(queryKey);
+
+        for (const key of matchingKeys) {
+            const signal = this.storage.get(key, false);
+            if (signal) {
+                const current = signal.get();
+                if (current) {
+                    signal.set({ ...current, isInvalidated: true });
                 }
             }
         }

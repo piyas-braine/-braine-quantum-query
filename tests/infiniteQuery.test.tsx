@@ -215,7 +215,7 @@ describe('useInfiniteQuery', () => {
 
         await waitFor(() => {
             // console.log('Current pageParams:', result.current.data?.pageParams);
-            expect(result.current.data?.pageParams).toEqual(['p1', 'p2', 'p3']);
+            expect(result.current.data?.pageParams).toEqual(['p1', 'p2']);
         }, { timeout: 10000 });
     }, 15000);
 
