@@ -37,7 +37,7 @@ export class MutationCache {
             // Create signal with auto-cleanup? 
             // We should probably remove it from cache when it's settled and no longer observed?
             // For now, simple manual management or LRU later. (10/10 requires robust GC but we focus on ID tracking first)
-            signal = createSignal(initialState) as unknown as Signal<MutationState<unknown, unknown, unknown>>;
+            signal = createSignal(initialState) as Signal<MutationState<unknown, unknown, unknown>>;
             this.mutations.set(id, signal);
         }
 
@@ -53,7 +53,10 @@ export class MutationCache {
         if (!this.mutationKeys.has(hash)) {
             this.mutationKeys.set(hash, new Set());
         }
-        this.mutationKeys.get(hash)!.add(id);
+        const keySet = this.mutationKeys.get(hash);
+        if (keySet) {
+            keySet.add(id);
+        }
     }
 
     /**

@@ -75,7 +75,9 @@ function setupPersistence<T>(s: Signal<T>, options: AtomOptions<T>) {
     s.subscribe((value) => {
         try {
             const serialized = JSON.stringify(value);
-            engine!.setItem(key, serialized);
+            if (engine) {
+                engine.setItem(key, serialized);
+            }
             if (debug) console.log(`[Quantum] Saved atom '${key}'`);
         } catch (err) {
             if (debug) console.error(`[Quantum] Save error`, err);

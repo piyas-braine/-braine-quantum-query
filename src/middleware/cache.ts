@@ -16,8 +16,8 @@ export const CacheMiddleware: Middleware<unknown> = async (ctx, next) => {
 
     // 1. Check Cache
     if (cache.has(key)) {
-        const entry = cache.get(key)!;
-        if (entry.expiresAt > Date.now()) {
+        const entry = cache.get(key);
+        if (entry && entry.expiresAt > Date.now()) {
             // Reconstruct Response from Cache
             // We stored "data" (parsed JSON) in our previous implementation.
             // But Middleware returns 'Response'.
@@ -51,11 +51,13 @@ export const CacheMiddleware: Middleware<unknown> = async (ctx, next) => {
             // When we READ from cache (above), we might need to clone.
             // Actually, we reconstruct Response from stringified data above, which creates copy.
 
-            cache.set(key, {
-                data: data, // Storing raw data object
-                timestamp: Date.now(),
-                expiresAt: Date.now() + cacheConfig!.ttl
-            });
+            if (cacheConfig) {
+                cache.set(key, {
+                    data: data, // Storing raw data object
+                    timestamp: Date.now(),
+                    expiresAt: Date.now() + cacheConfig.ttl
+                });
+            }
         } catch {
             // Not JSON? Don't cache for now or cache text.
         }

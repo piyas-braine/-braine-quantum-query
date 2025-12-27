@@ -73,7 +73,7 @@ export class QueryStorage {
             signal = newSignal;
         }
 
-        return signal as unknown as Signal<CacheEntry<T> | undefined> | undefined;
+        return signal as Signal<CacheEntry<T> | undefined> | undefined;
     }
 
     private tagIndex = new Map<string, Set<string>>();
@@ -98,7 +98,10 @@ export class QueryStorage {
                 if (!this.tagIndex.has(tag)) {
                     this.tagIndex.set(tag, new Set());
                 }
-                this.tagIndex.get(tag)!.add(key);
+                const tagSet = this.tagIndex.get(tag);
+                if (tagSet) {
+                    tagSet.add(key);
+                }
             }
         }
 
@@ -210,7 +213,10 @@ export class QueryStorage {
 
     private scheduleGC(key: string, delay: number) {
         if (this.gcTimers.has(key)) {
-            clearTimeout(this.gcTimers.get(key)!);
+            const timer = this.gcTimers.get(key);
+            if (timer !== undefined) {
+                clearTimeout(timer);
+            }
         }
         const timer = setTimeout(() => {
             this.delete(key);
@@ -220,7 +226,10 @@ export class QueryStorage {
 
     private cancelGC(key: string) {
         if (this.gcTimers.has(key)) {
-            clearTimeout(this.gcTimers.get(key)!);
+            const timer = this.gcTimers.get(key);
+            if (timer !== undefined) {
+                clearTimeout(timer);
+            }
             this.gcTimers.delete(key);
         }
     }

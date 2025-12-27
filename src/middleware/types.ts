@@ -27,7 +27,7 @@ export function compose<T>(middleware: Middleware<T>[]): Middleware<T> {
             index = i;
 
             let fn = middleware[i];
-            if (i === middleware.length) fn = next as unknown as Middleware<T>; // Terminator
+            if (i === middleware.length) fn = next as Middleware<T>; // Terminator
 
             if (!fn) return Promise.resolve(new Response(null, { status: 404 })); // Should handle fetch
 

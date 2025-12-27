@@ -135,9 +135,10 @@ export class MutationObserver<TData, TVariables, TContext> {
                 this.client.set(optimistic.queryKey, optimisticSnapshot);
             }
 
-            notify({ status: 'error', error: error as Error });
-            if (onError) onError(error as Error, variables, context);
-            if (onSettled) onSettled(undefined, error as Error, variables, context);
+            const errorObj = error instanceof Error ? error : new Error(String(error));
+            notify({ status: 'error', error: errorObj });
+            if (onError) onError(errorObj, variables, context);
+            if (onSettled) onSettled(undefined, errorObj, variables, context);
             throw error;
         }
     }

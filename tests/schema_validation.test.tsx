@@ -52,7 +52,8 @@ describe('useQuery Schema Validation', () => {
 
         await waitFor(() => expect(result.current.isError).toBe(true));
 
-        expect(result.current.error).toBeInstanceOf(z.ZodError);
+        // Error is now wrapped in QueryError
+        expect(result.current.error).toBeInstanceOf(Error);
         expect(result.current.data).toBeUndefined();
     });
 

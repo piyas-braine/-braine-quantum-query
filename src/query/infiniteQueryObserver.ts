@@ -70,12 +70,16 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
             let hasPreviousPage = false;
             if (data && data.pages.length > 0) {
                 if (opts.getNextPageParam) {
-                    const lastPage = data.pages[data.pages.length - 1]!;
-                    hasNextPage = opts.getNextPageParam(lastPage, data.pages) !== undefined;
+                    const lastPage = data.pages[data.pages.length - 1];
+                    if (lastPage) {
+                        hasNextPage = opts.getNextPageParam(lastPage, data.pages) !== undefined;
+                    }
                 }
                 if (opts.getPreviousPageParam) {
-                    const firstPage = data.pages[0]!;
-                    hasPreviousPage = opts.getPreviousPageParam(firstPage, data.pages) !== undefined;
+                    const firstPage = data.pages[0];
+                    if (firstPage) {
+                        hasPreviousPage = opts.getPreviousPageParam(firstPage, data.pages) !== undefined;
+                    }
                 }
             }
 
@@ -237,7 +241,10 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
         if (!res.hasNextPage || res.isFetching || !res.data) return;
 
         const infiniteKey = [...opts.queryKey, '__infinite__'];
-        const lastPage = res.data.pages[res.data.pages.length - 1]!;
+        const lastPage = res.data.pages[res.data.pages.length - 1];
+        if (!lastPage) {
+            return;
+        }
         const nextPageParam = opts.getNextPageParam?.(lastPage, res.data.pages);
         if (nextPageParam === undefined) return;
 
@@ -274,7 +281,10 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
         if (!res.hasPreviousPage || res.isFetching || !res.data) return;
 
         const infiniteKey = [...opts.queryKey, '__infinite__'];
-        const firstPage = res.data.pages[0]!;
+        const firstPage = res.data.pages[0];
+        if (!firstPage) {
+            return;
+        }
         const previousPageParam = opts.getPreviousPageParam?.(firstPage, res.data.pages);
         if (previousPageParam === undefined) return;
 

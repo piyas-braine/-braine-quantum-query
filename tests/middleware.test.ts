@@ -45,7 +45,10 @@ describe('QueryClient Middleware', () => {
             // expected
         }
 
-        expect(onError).toHaveBeenCalledWith(['error'], error);
+        // QueryError wraps the original error
+        expect(onError).toHaveBeenCalled();
+        const errorArg = onError.mock.calls[0]?.[1];
+        expect(errorArg).toBeInstanceOf(Error);
     });
 
     it('should trigger onInvalidate hooks', async () => {

@@ -10,8 +10,10 @@ import { PluginManager } from './pluginManager';
 import type { QueryPlugin, Schema } from './types';
 import { type Signal } from '../signals';
 import { validateWithSchema } from './plugins/validation';
+import { QueryError, reportError } from './errors';
 
 export type { QueryKeyInput, CacheEntry, QueryStatus, FetchDirection, QueryKey } from './queryStorage';
+export { QueryError, ErrorType, reportError, errorReporter } from './errors';
 
 export class QueryClient {
     // Components
@@ -75,7 +77,13 @@ export class QueryClient {
     getSignal = <T>(queryKey: QueryKeyInput): Signal<CacheEntry<T> | undefined> => {
         const key = this.storage.generateKey(queryKey);
         // Hooks DO want auto-creation
-        return this.storage.get<T>(key, true)!;
+        const signal = this.storage.get<T>(key, true);
+
+        if (!signal) {
+            throw new Error(`[Quantum] Failed to create signal for query key: ${JSON.stringify(queryKey)}`);
+        }
+
+        return signal;
     }
 
     /**
@@ -148,7 +156,12 @@ export class QueryClient {
         const direction = options?.fetchDirection || 'initial';
 
         // 1. Update Signal: Fetching Start
-        const signal = this.storage.get<T>(key, true)!;  // Force create
+        const signal = this.storage.get<T>(key, true);  // Force create
+
+        if (!signal) {
+            throw new Error(`[Quantum] Failed to create signal for query key: ${JSON.stringify(queryKey)}`);
+        }
+
         const currentEntry = signal.get();
         const mergedTags = options?.tags ?? currentEntry?.tags;
 

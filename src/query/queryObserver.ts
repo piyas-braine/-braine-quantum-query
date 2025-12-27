@@ -86,30 +86,34 @@ export class QueryObserver<T, TData = T> {
             const isLoading = data === undefined && isFetching;
 
             let finalData: TData | undefined;
+            let selectorError: Error | null = null;
+
             if (data !== undefined) {
-                try {
-                    finalData = opts.select ? opts.select(data) : (data as unknown as TData);
-                } catch (e) {
-                    // 10/10 Safety: Fix crash if lastResult is null on first run
-                    return {
-                        ...(lastResult ?? {} as QueryObserverResult<TData>),
-                        status: 'error',
-                        error: e as Error,
-                        isError: true
-                    };
+                if (opts.select) {
+                    try {
+                        finalData = opts.select(data);
+                    } catch (e) {
+                        // Selector error - this is a USER error, not a query error
+                        selectorError = e instanceof Error ? e : new Error(String(e));
+                        console.error('[Quantum] Selector function threw an error:', selectorError);
+                        // Don't set finalData - leave it undefined
+                    }
+                } else {
+                    finalData = data as TData;
                 }
             }
+
 
             const nextResult: QueryObserverResult<TData> = {
                 data: finalData,
                 isLoading,
-                isError,
-                isSuccess,
+                isError: isError || selectorError !== null,
+                isSuccess: isSuccess && selectorError === null,
                 isPending,
                 isFetching,
                 isStale,
-                error,
-                status,
+                error: selectorError || error,
+                status: selectorError ? 'error' : status,
                 refetch: this.refetch
             };
 
