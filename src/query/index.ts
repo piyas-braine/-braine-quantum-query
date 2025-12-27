@@ -10,6 +10,7 @@ export type { UsePaginatedQueryOptions, PaginatedQueryResult } from './paginatio
 
 export * from './useQuery';
 export * from './useSuspenseQuery';
+export * from './useMutation';
 export * from './mutationCache';
 export { useQueryClient, QueryClientProvider } from './context';
 export { useInfiniteQuery } from './infiniteQuery';
@@ -17,7 +18,6 @@ export { HydrationBoundary } from './HydrationBoundary';
 export { dehydrate, hydrate } from './hydration';
 export type { QueryPlugin } from './types';
 export type { Signal } from '../signals';
-export * from './useSuspenseQuery';
 export { useQueryStore } from './useQueryStore';
 export { useQuery$ } from './useQuerySignal';
 export { useQueries, useCombinedQueries } from './useQueries';
