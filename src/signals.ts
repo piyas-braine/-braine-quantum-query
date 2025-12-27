@@ -16,6 +16,7 @@ import {
 export interface Signal<T> {
     get: () => T;
     set: (value: T) => void;
+    update: (fn: (current: T) => T) => void; // Atomic read-modify-write
     subscribe: (fn: (value: T) => void) => () => void;
     isWatched: () => boolean;
 }
@@ -37,6 +38,10 @@ export function createSignal<T>(initialValue: T, options?: SignalOptions): Signa
 
         set: (newValue: T) => {
             s.value = newValue;
+        },
+
+        update: (fn: (current: T) => T) => {
+            s.value = fn(s.value);
         },
 
         subscribe: (fn: (value: T) => void) => {
@@ -73,6 +78,9 @@ export function computed<T>(fn: () => T): Signal<T> {
         get: () => c.value,
         set: () => {
             throw new Error("[Quantum] Cannot set a computed signal directly.");
+        },
+        update: () => {
+            throw new Error("[Quantum] Cannot update a computed signal directly.");
         },
         subscribe: (fn: (value: T) => void) => {
             subscriberCount++;

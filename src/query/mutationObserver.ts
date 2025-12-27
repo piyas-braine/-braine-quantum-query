@@ -1,6 +1,6 @@
 import { type MutationCache, type MutationState } from './mutationCache';
 import { type UseMutationOptions } from './useMutation';
-import { type Signal, createSignal } from '../signals';
+import { type Signal, createSignal, untracked } from '../signals';
 import { type QueryClient } from './queryClient'; // Type import
 
 // Polyfill for randomUUID if needed (or just use a better random generator)
@@ -67,11 +67,14 @@ export class MutationObserver<TData, TVariables, TContext> {
         // 3. Sync Subscription
         // Ensure future updates from cache filter down to us
         const unsubscribe = this.client.mutationCache.getSignal<TData, TVariables, TContext>(id).subscribe((state) => {
-            // Avoid infinite loop if we just notified
-            const current = this.signal.get();
-            if (current.status !== state.status || current.data !== state.data || current.error !== state.error) {
-                this.signal.set(state);
-            }
+            // Use untracked to prevent this update from being tracked as a dependency
+            // This breaks the reactive cycle: subscribe -> set -> subscribe -> set...
+            untracked(() => {
+                const current = this.signal.get();
+                if (current.status !== state.status || current.data !== state.data || current.error !== state.error) {
+                    this.signal.set(state);
+                }
+            });
         });
 
         // Execute Refactored Logic

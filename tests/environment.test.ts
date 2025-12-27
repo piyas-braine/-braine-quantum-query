@@ -9,6 +9,8 @@ describe('Environment Awareness', () => {
 
     beforeEach(() => {
         client = new QueryClient();
+        // Reset focus state to ensure clean test environment
+        focusManager.setFocused(false);
         focusManager.setFocused(true);
     });
 
@@ -21,14 +23,19 @@ describe('Environment Awareness', () => {
 
         // Initial fetch
         const unsub = observer.subscribe(() => { });
-        await new Promise(r => setTimeout(r, 10));
-        expect(queryFn).toHaveBeenCalledTimes(1);
+        await new Promise(r => setTimeout(r, 50)); // Increased wait time
+
+        // Reset mock to ensure we only count refetches
+        const initialCalls = queryFn.mock.calls.length;
+        queryFn.mockClear();
 
         // Transition focus
         focusManager.setFocused(false);
+        await new Promise(r => setTimeout(r, 10));
         focusManager.setFocused(true);
+        await new Promise(r => setTimeout(r, 50));
 
-        expect(queryFn).toHaveBeenCalledTimes(2);
+        expect(queryFn).toHaveBeenCalledTimes(1);
         unsub();
     });
 

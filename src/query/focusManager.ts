@@ -41,8 +41,12 @@ export class FocusManager {
     }
 
     setFocused(focused: boolean) {
+        const wasUnfocused = !this.focused;
         this.focused = focused;
-        if (focused) this.onFocus();
+        // Only trigger listeners if we're transitioning from unfocused to focused
+        if (focused && wasUnfocused) {
+            this.onFocus();
+        }
     }
 }
 

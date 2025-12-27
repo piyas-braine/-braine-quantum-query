@@ -32,7 +32,7 @@ export class QueryStorage {
 
     // Default configuration
     constructor(
-        private defaultStaleTime: number = 0,
+        private defaultStaleTime: number = 5 * 60 * 1000, // 5 minutes - queries stay fresh
         private defaultCacheTime: number = 5 * 60 * 1000,
         private maxSize: number = 100 // Default limit to prevent memory overflow
     ) { }

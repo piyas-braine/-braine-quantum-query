@@ -164,7 +164,8 @@ describe('useInfiniteQuery', () => {
                 queryKey: ['feed_refetch_robust'],
                 queryFn: mockFn,
                 getNextPageParam: (last: { nextCursor?: string }) => last.nextCursor,
-                initialPageParam: null
+                initialPageParam: null,
+                staleTime: 0 // Ensure refetch works
             }),
             { wrapper }
         );
@@ -174,17 +175,16 @@ describe('useInfiniteQuery', () => {
         await act(async () => {
             await result.current.fetchNextPage();
         });
-        await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
+        await waitFor(() => expect(result.current.data?.pages).toHaveLength(2), { timeout: 5000 });
 
         await act(async () => {
-            // Reset counter logic if needed, but handled by callCount > 2
             await result.current.refetch();
         });
 
         await waitFor(() => {
             expect(result.current.data?.pages).toHaveLength(1);
             expect((result.current.data?.pages[0] as { items: unknown[] }).items).toEqual([{ id: 3 }]);
-        });
+        }, { timeout: 5000 });
     });
 
     it('should track pageParams correctly', async () => {

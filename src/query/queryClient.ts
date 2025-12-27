@@ -30,7 +30,7 @@ export class QueryClient {
     private readonly defaultSchema?: Schema<unknown>;
 
     constructor(config?: import('./types').QueryClientConfig) {
-        this.defaultStaleTime = config?.defaultStaleTime ?? 0;
+        this.defaultStaleTime = config?.defaultStaleTime ?? (5 * 60 * 1000); // 5 minutes
         this.defaultCacheTime = config?.defaultCacheTime ?? 5 * 60 * 1000;
         this.defaultSchema = config?.defaultSchema;
 
@@ -281,6 +281,16 @@ export class QueryClient {
     }
 
     getAll = () => this.storage.getAll();
+
+    /**
+     * Check if a query key exists in the cache
+     */
+    has = (queryKey: QueryKeyInput): boolean => {
+        const key = this.storage.generateKey(queryKey);
+        const signal = this.storage.get(key, false);
+        return signal !== undefined && signal.get() !== undefined;
+    }
+
     snapshot = () => this.storage.getSnapshot();
     clear = () => this.storage.clear();
     remove = (key: QueryKeyInput) => this.storage.delete(this.storage.generateKey(key));
