@@ -16,16 +16,18 @@ interface RetryConfig {
 }
 
 export const RetryMiddleware: Middleware<unknown> = async (ctx, next) => {
-    // Safe unknown cast with type guard or interface
-    const retryConfigRaw = ctx.config.retry as unknown;
+    const retryConfigRaw = ctx.config.retry;
 
     if (!retryConfigRaw) return next(ctx);
 
     let config: RetryConfig;
     if (typeof retryConfigRaw === 'number') {
         config = { retries: retryConfigRaw };
-    } else {
+    } else if (typeof retryConfigRaw === 'object' && retryConfigRaw !== null) {
         config = retryConfigRaw as RetryConfig;
+    } else {
+        // Invalid config, skip retry
+        return next(ctx);
     }
 
     const { retries = 0, baseDelay = 1000, maxDelay = 3000 } = config;

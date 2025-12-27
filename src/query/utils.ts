@@ -51,12 +51,13 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
 
         let length, i, keys;
         if (Array.isArray(a)) {
-            const arrA = a as unknown[];
-            const arrB = b as unknown[];
-            length = arrA.length;
-            if (length !== arrB.length) return false;
+            // Type guard ensures both are arrays
+            if (!Array.isArray(b)) return false;
+
+            length = a.length;
+            if (length !== b.length) return false;
             for (i = length; i-- !== 0;) {
-                if (!isDeepEqual(arrA[i], arrB[i])) return false;
+                if (!isDeepEqual(a[i], b[i])) return false;
             }
             return true;
         }

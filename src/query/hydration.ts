@@ -17,8 +17,11 @@ export function dehydrate(client: QueryClient): DehydratedState {
     const snapshot = client.getSnapshot();
 
     snapshot.forEach((state, hash) => {
+        // Type guard: ensure key is array
+        const queryKey = Array.isArray(state.key) ? state.key : [state.key];
+
         queries.push({
-            queryKey: state.key as unknown[],
+            queryKey,
             queryHash: hash,
             state: state
         });

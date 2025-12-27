@@ -19,4 +19,6 @@ export type { Signal } from '../signals';
 export * from './useSuspenseQuery';
 export { useQueryStore } from './useQueryStore';
 export { useQuery$ } from './useQuerySignal';
+export { useQueries, useCombinedQueries } from './useQueries';
+export type { UseQueryOptions, UseQueriesResult } from './useQueries';
 

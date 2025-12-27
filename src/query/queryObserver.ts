@@ -1,4 +1,4 @@
-import { type QueryClient, type QueryKeyInput, type CacheEntry, type QueryStatus } from './queryClient';
+import { type QueryClient, type QueryKeyInput, type CacheEntry, type QueryStatus, QueryError, reportError } from './queryClient';
 import { type Schema } from './types';
 import { type Signal, computed, effect, createSignal, untracked } from '../signals';
 import { stableHash, isDeepEqual } from './utils';
@@ -95,6 +95,13 @@ export class QueryObserver<T, TData = T> {
                     } catch (e) {
                         // Selector error - this is a USER error, not a query error
                         selectorError = e instanceof Error ? e : new Error(String(e));
+
+                        // Report to global error handler for monitoring
+                        const queryError = QueryError.fromUnknown(e, {
+                            queryKey: Array.isArray(opts.queryKey) ? opts.queryKey : [opts.queryKey]
+                        });
+                        reportError(queryError);
+
                         console.error('[Quantum] Selector function threw an error:', selectorError);
                         // Don't set finalData - leave it undefined
                     }
@@ -255,13 +262,39 @@ export class QueryObserver<T, TData = T> {
                 { signal, retry: opts.retry, retryDelay: opts.retryDelay, tags: opts.tags }
             );
         } catch (e) {
-            // Client handles error
+            // Error is already in cache, but report it globally for monitoring
+            const queryError = QueryError.fromUnknown(e, {
+                queryKey: this.normalizeQueryKey(opts.queryKey)
+            });
+            reportError(queryError);
         }
     }
 
-    destroy() {
-        if (this.unsubscribe) this.unsubscribe();
-        if (this.abortController) this.abortController.abort();
+    destroy(): void {
+        // Cleanup subscriptions
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            this.unsubscribe = null;
+        }
+
+        // Cleanup abort controller
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;  // Allow GC
+        }
+
+        // Cleanup interval (CRITICAL FIX)
+        if (this.intervalParams.id) {
+            clearInterval(this.intervalParams.id);
+            this.intervalParams.id = null;
+        }
+    }
+
+    /**
+     * Normalize query key for error reporting
+     */
+    private normalizeQueryKey(queryKey: QueryKeyInput): unknown[] {
+        return Array.isArray(queryKey) ? queryKey : [queryKey];
     }
 }
 

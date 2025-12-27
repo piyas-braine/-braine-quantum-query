@@ -38,8 +38,11 @@ export async function persistQueryClient(options: PersistQueryClientOptions) {
         const cacheMap = queryClient.getAll();
 
         for (const [keyStr, entry] of cacheMap.entries()) {
+            // Type guard: ensure key is array
+            const queryKey = Array.isArray(entry.key) ? entry.key : [entry.key];
+
             queries.push({
-                queryKey: entry.key as unknown[],
+                queryKey,
                 data: entry.data,
                 timestamp: entry.timestamp,
                 staleTime: entry.staleTime,

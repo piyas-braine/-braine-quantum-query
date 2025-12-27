@@ -312,8 +312,30 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
     refetch = async () => {
         const opts = this.options$.get();
         const infiniteKey = [...opts.queryKey, '__infinite__'];
+
+        // Clear existing data and refetch from scratch
         this.client.invalidate(infiniteKey);
-        await this.fetchInitial({ force: true });
+
+        // Force a fresh initial fetch (resets to single page)
+        const initialParam = opts.initialPageParam;
+        const firstParam = (initialParam !== undefined ? initialParam : 0) as TPageParam;
+
+        try {
+            const initialData = await this.client.fetch(infiniteKey, async () => {
+                const firstPage = await opts.queryFn({ pageParam: firstParam });
+                return {
+                    pages: [firstPage],
+                    pageParams: [firstParam]
+                } as InfiniteData<T>;
+            }, { fetchDirection: 'initial', retry: opts.retry });
+
+            this.client.set(infiniteKey, initialData, {
+                staleTime: opts.staleTime,
+                cacheTime: opts.cacheTime
+            });
+        } catch (err) {
+            getLogger().error("Refetch failed", err);
+        }
     }
 
     destroy() {

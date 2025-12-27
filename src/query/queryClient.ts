@@ -338,7 +338,24 @@ export class QueryClient {
     }
 
     private normalizeKey(queryKey: QueryKeyInput): unknown[] {
-        return Array.isArray(queryKey) ? queryKey : [(queryKey as QueryKey).key, (queryKey as QueryKey).params];
+        // Null/undefined guard
+        if (queryKey === null || queryKey === undefined) {
+            throw new Error('[Quantum] Query key cannot be null or undefined');
+        }
+
+        // Array case
+        if (Array.isArray(queryKey)) {
+            return queryKey;
+        }
+
+        // Object case with type guard
+        if (typeof queryKey === 'object' && 'key' in queryKey) {
+            const qk = queryKey as QueryKey;
+            return [qk.key, qk.params];
+        }
+
+        // Invalid format
+        throw new Error(`[Quantum] Invalid query key format: ${JSON.stringify(queryKey)}`);
     }
 
     private isCacheEntry<T>(entry: unknown): entry is CacheEntry<T> {
