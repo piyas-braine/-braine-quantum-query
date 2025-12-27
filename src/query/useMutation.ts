@@ -47,6 +47,7 @@ export function useMutation<TData = unknown, TVariables = void, TContext = unkno
     // O(1) update via Signal
     const state = useSyncExternalStore(
         useCallback((cb) => observer.signal.subscribe(cb), [observer]),
+        () => observer.signal.get(),
         () => observer.signal.get()
     );
 

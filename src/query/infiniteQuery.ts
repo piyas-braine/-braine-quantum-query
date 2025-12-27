@@ -26,7 +26,7 @@ export function useInfiniteQuery<T, TPageParam = unknown>(
 
     // 4. React to store changes (Re-render when observer state changes)
     const subscribe = useCallback((onStoreChange: () => void) => {
-        return observer.result$.subscribe(() => onStoreChange());
+        return observer.subscribe(onStoreChange);
     }, [observer]);
 
     const getSnapshot = useCallback(() => {
@@ -34,5 +34,5 @@ export function useInfiniteQuery<T, TPageParam = unknown>(
     }, [observer]);
 
     // We use useSyncExternalStore for React 18 concurrency safety
-    return useSyncExternalStore(subscribe, getSnapshot);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

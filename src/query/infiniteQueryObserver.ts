@@ -120,8 +120,26 @@ export class InfiniteQueryObserver<T, TPageParam = unknown> {
             return nextResult;
         });
 
-        this.initSideEffects();
+        // this.initSideEffects();
     }
+
+    subscribe(listener: () => void): () => void {
+        const unsubSignal = this.result$.subscribe(listener);
+
+        if (!this.unsubscribe) {
+            this.initSideEffects();
+        }
+
+        return () => {
+            unsubSignal();
+            if (this.unsubscribe) {
+                this.unsubscribe();
+                this.unsubscribe = null;
+            }
+        };
+    }
+
+
 
     setOptions(options: InfiniteQueryObserverOptions<T, TPageParam>) {
         const current = this.options$.get();

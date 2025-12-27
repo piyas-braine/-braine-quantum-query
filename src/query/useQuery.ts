@@ -38,7 +38,7 @@ export function useQuery<T, TData = T>(
         return observer.getSnapshot();
     }, [observer]);
 
-    const result = useSyncExternalStore(subscribe, getSnapshot);
+    const result = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     return {
         ...result,

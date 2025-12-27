@@ -144,7 +144,7 @@ export class QueryObserver<T, TData = T> {
         });
 
         // 3. Side Effects (Fetching, Intervals)
-        this.initSideEffects();
+        // this.initSideEffects();
     }
 
     setOptions(options: QueryObserverOptions<T, TData>) {
@@ -178,12 +178,19 @@ export class QueryObserver<T, TData = T> {
     }
 
     subscribe(listener: () => void): () => void {
-        const unsub = this.result$.subscribe(() => {
-            listener();
-        });
+        const unsubSignal = this.result$.subscribe(listener);
 
-        // Ensure side effects are running (lazy init if we wanted, but we init in constructor)
-        return unsub;
+        if (!this.unsubscribe) {
+            this.initSideEffects();
+        }
+
+        return () => {
+            unsubSignal();
+            if (this.unsubscribe) {
+                this.unsubscribe();
+                this.unsubscribe = null;
+            }
+        };
     }
 
     getSnapshot = () => {
